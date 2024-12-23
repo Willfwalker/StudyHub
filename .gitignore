@@ -22,11 +22,14 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+credentials.py
 
 # Google credentials
 credentials.json
 token.pickle
 @google_tokens/
+student-hub-28ea1-firebase-adminsdk-x3tg5-8e4d21f2be.json
+*firebase-adminsdk*.json
 
 # IDE specific files
 .idea/

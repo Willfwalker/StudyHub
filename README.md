@@ -1,93 +1,95 @@
-# Student Hub App
+# StudyHub
+> A comprehensive student academic management platform that integrates with Canvas LMS and Google Workspace.
 
-A comprehensive educational automation tool that integrates Canvas LMS, Google Docs, and AI services to help students manage their academic work more efficiently.
+## 🚀 Features
 
-## Features
+### 📚 Assignment Management
+- View and track course assignments
+- Create assignment documents (MLA, APA formats)
+- Automatic Google Docs integration
+- Smart submission tracking
+- Due date reminders
 
-### Canvas Integration
-- Fetch course information and assignments
-- Get real-time grades and due dates
-- Access professor information
-- Track academic progress
-- View past assignments and grades
-- Monitor upcoming deadlines
+### 📖 Study Tools
+- **Lecture Summary Generator:** Convert notes into concise summaries
+- **Citation Generator:** Multiple format support
+- **Quiz Maker:** Create custom study materials
+- **Flashcard System:** Digital flashcards for effective studying
+- **To-Do List:** Organize tasks and assignments
 
-### Google Docs Automation
-- Create formatted homework documents
-- Automatic header formatting with student name
-- Course-specific document organization
-- Smart folder management
-- Interactive document creation
-- Assignment tracking system
-- Automatic date formatting
-- Document status tracking
+### 🔄 Integrations
+#### Canvas LMS
+- Seamless synchronization
+- Real-time grade tracking
+- Assignment submission status
+- Course material access
 
-### AI Services
-- Convert lecture speech to text
-- Generate lecture summaries
-- Get AI assistance with homework
-- Receive personalized YouTube video recommendations
-- Smart content generation
-- Educational video recommendations
+#### Google Workspace
+- Automatic document creation and storage
+- Cloud-based file management
+- Organized course folder structure
 
-## Setup Requirements
+### 🤖 Smart Features
+- AI-powered chat assistance
+- Study video recommendations
+- Text summarization tools
+- Bug reporting system
 
-1. Canvas LMS API Token
-   - Generate from Canvas Account Settings
-   - Add to `.env` file as `CANVAS_API_TOKEN`
+## ⚙️ Technical Requirements
 
-2. Google Cloud Setup
-   - Create project in Google Cloud Console
-   - Enable Google Docs and Drive APIs
-   - Create OAuth 2.0 credentials
-   - Save as `credentials.json`
+### Prerequisites
+- Canvas API access
+- Google Workspace account
+- Modern web browser
+- Internet connection
 
-3. Firebase Configuration
-   - Create Firebase project
-   - Add configuration to `.env`
-   - Enable Authentication
-   - Set up Realtime Database
+### Required API Keys
+- Canvas API key
+- Google Drive API access
 
-## Installation
+## 🛠️ Setup Instructions
 
-1. Clone the repository:
-   ```bash
-   git clone [repository-url]
-   cd student-hub
-   ```
+1. **Create Account**
+   - Sign up for StudyHub
 
-2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+2. **Configure Canvas**
+   - Enter Canvas URL
+   - Add API key
+   - Verify connection
 
-3. Set up environment variables:
-   ```bash
-   CANVAS_URL=your_canvas_url
-   CANVAS_API_TOKEN=your_api_token
-   GOOGLE_CREDENTIALS_PATH=/path/to/credentials.json
-   FOLDER_IDS_PATH=/path/to/folder_ids.csv
-   ```
+3. **Set up Google Drive**
+   - Select parent folder for documents
+   - Grant necessary permissions
+   - Test integration
 
-## Dependencies
+4. **Complete Profile**
+   - Add profile picture (optional)
+   - Configure notification preferences
+   - Set up course preferences
 
-- Flask
-- firebase-admin
-- google-api-python-client
-- google-auth-oauthlib
-- canvasapi
-- python-dotenv
-- pandas
-- requests
+## 🔒 Security Features
+- CSRF protection
+- Secure password handling
+- API key encryption
+- Session management
+- Secure file handling
 
-## Contributing
+## 💻 User Interface
+Modern, intuitive interface featuring:
+- Responsive design
+- Dark/light mode support
+- Sidebar navigation
+- Quick access tools
+- Modal interfaces for focused tasks
 
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+## 📞 Support
+Need help? Here's how to get support:
+- Use the in-app bug reporting tool
+- Contact support through your profile page
+- Check documentation for common issues
 
-## Support
+## 📄 License
+All rights reserved. This software is proprietary and confidential.
 
-For support, please open an issue in the GitHub repository.
+---
+*Note: This README represents the current state of the application. Features and functionality may be updated over time.*
