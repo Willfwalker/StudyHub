@@ -184,11 +184,13 @@ def dashboard():
         user_id = session.get('user_id')
         if not user_id:
             return redirect(url_for('login'))
-        
+
+        # Initialize services
         canvas_service = CanvasService(user_id)
+        docs_service = DocsService(user_id)
         
-        if not canvas_service.api_key:
-            return redirect(url_for('login'))
+        # Check for new semester and create folders if needed
+        docs_service.check_new_semester(canvas_service)
         
         # Get classes and cache their images
         classes = canvas_service.get_classes()

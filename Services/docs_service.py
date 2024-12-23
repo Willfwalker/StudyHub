@@ -899,3 +899,160 @@ class DocsService:
         except Exception as e:
             print(f"Error getting folder documents: {str(e)}")
             return None
+
+    def create_semester_folders(self, class_names: list, parent_folder_id: str = None) -> bool:
+        """Creates new folders for a new semester's classes.
+        
+        Args:
+            class_names: List of class names for the new semester
+            parent_folder_id: Optional parent folder ID. If not provided, will use user's root folder
+        
+        Returns:
+            bool: True if folders were created successfully, False otherwise
+        """
+        try:
+            if not self.user_id:
+                return False
+            
+            # If no parent folder provided, get the user's root folder from Firebase
+            if not parent_folder_id:
+                user_ref = db.reference(f'users/{self.user_id}')
+                user_data = user_ref.get()
+                if not user_data or 'google_parent_folder' not in user_data:
+                    return False
+                parent_folder_id = user_data['google_parent_folder']
+
+            # Create semester folder
+            current_date = datetime.now()
+            semester = 'Spring' if current_date.month < 7 else 'Fall'
+            semester_name = f"{semester} {current_date.year}"
+            
+            semester_metadata = {
+                'name': semester_name,
+                'mimeType': 'application/vnd.google-apps.folder',
+                'parents': [parent_folder_id]
+            }
+            
+            semester_folder = self.drive_service.files().create(
+                body=semester_metadata,
+                fields='id'
+            ).execute()
+            
+            semester_folder_id = semester_folder.get('id')
+            
+            # Create folders for each class
+            created_folders = []
+            for class_name in class_names:
+                try:
+                    # Create main class folder
+                    folder_metadata = {
+                        'name': class_name,
+                        'mimeType': 'application/vnd.google-apps.folder',
+                        'parents': [semester_folder_id]
+                    }
+                    
+                    folder = self.drive_service.files().create(
+                        body=folder_metadata,
+                        fields='id'
+                    ).execute()
+                    
+                    folder_id = folder.get('id')
+                    
+                    # Create Notes subfolder
+                    notes_metadata = {
+                        'name': 'Notes',
+                        'mimeType': 'application/vnd.google-apps.folder',
+                        'parents': [folder_id]
+                    }
+                    
+                    notes_folder = self.drive_service.files().create(
+                        body=notes_metadata,
+                        fields='id'
+                    ).execute()
+                    
+                    # Save folder info to Firebase
+                    self._save_semester_folder_info(
+                        semester_name=semester_name,
+                        class_name=class_name,
+                        folder_data={
+                            'main_folder_id': folder_id,
+                            'notes_folder_id': notes_folder.get('id')
+                        }
+                    )
+                    
+                    created_folders.append(folder_id)
+                    
+                except Exception as e:
+                    print(f'Error creating folder for {class_name}: {e}')
+                    continue
+                    
+            return len(created_folders) > 0
+            
+        except Exception as e:
+            print(f"Error creating semester folders: {e}")
+            return False
+
+    def _save_semester_folder_info(self, semester_name: str, class_name: str, folder_data: dict):
+        """Saves semester folder information to Firebase"""
+        try:
+            if not self.user_id:
+                return False
+            
+            # Create a reference to the semester folders
+            semester_ref = db.reference(f'users/{self.user_id}/semesters/{semester_name}/folders')
+            
+            # Create a unique key for the folder
+            folder_key = class_name.replace('.', '_').replace('/', '_').replace(' ', '_')
+            
+            # Store folder information
+            semester_ref.child(folder_key).set({
+                'name': class_name,
+                'main_folder_id': folder_data['main_folder_id'],
+                'notes_folder_id': folder_data['notes_folder_id'],
+                'created_at': datetime.now().isoformat()
+            })
+            
+            return True
+            
+        except Exception as e:
+            print(f"Error saving semester folder info: {e}")
+            return False
+
+    def check_new_semester(self, canvas_service) -> bool:
+        """Checks if a new semester has started and creates folders if needed.
+        
+        Args:
+            canvas_service: Instance of CanvasService to get current classes
+            
+        Returns:
+            bool: True if new semester was detected and folders were created
+        """
+        try:
+            if not self.user_id:
+                return False
+            
+            # Get current semester
+            current_date = datetime.now()
+            current_semester = 'Spring' if current_date.month < 7 else 'Fall'
+            current_semester_name = f"{current_semester} {current_date.year}"
+            
+            # Check if we already have folders for this semester
+            semester_ref = db.reference(f'users/{self.user_id}/semesters/{current_semester_name}')
+            existing_semester = semester_ref.get()
+            
+            if existing_semester:
+                return False  # Semester folders already exist
+            
+            # Get current classes from Canvas
+            current_classes = canvas_service.get_classes()
+            if not current_classes:
+                return False
+            
+            class_names = [course['name'] for course in current_classes]
+            
+            # Create new folders for the semester
+            return self.create_semester_folders(class_names)
+            
+        except Exception as e:
+            print(f"Error checking for new semester: {e}")
+            return False
