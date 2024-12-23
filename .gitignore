@@ -26,6 +26,7 @@ wheels/
 # Google credentials
 credentials.json
 token.pickle
+@google_tokens/
 
 # IDE specific files
 .idea/
