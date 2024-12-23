@@ -27,6 +27,7 @@ credentials.py
 # Google credentials
 credentials.json
 token.pickle
+@google_tokens
 @google_tokens/
 @google_tokens/**
 **/google_tokens/
