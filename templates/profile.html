@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="profile-container">
+    <!-- Header Section -->
+    <div class="profile-header">
+        <div class="profile-info">
+            <div class="profile-image">
+                <img src="{{ user_profile_picture if user_profile_picture else url_for('static', filename='images/default-profile.png') }}" 
+                     alt="Profile Picture">
+            </div>
+            <div class="welcome-text">
+                <h1>Welcome, {{ user_name }}</h1>
+                <p>Manage your info, privacy, and security to make Study Hub work better for you.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cards Grid -->
+    <div class="cards-grid">
+        <!-- Privacy Card -->
+        <div class="info-card">
+            <div class="card-content">
+                <div class="card-text">
+                    <h2>Privacy & personalization</h2>
+                    <p>See your Canvas data and choose what information is used to personalize your Study Hub experience</p>
+                </div>
+            </div>
+            <div class="card-action">
+                <a href="#" class="action-button">Manage your data & privacy</a>
+            </div>
+        </div>
+
+        <!-- Security Card -->
+        <div class="info-card">
+            <div class="card-content">
+                <div class="card-text">
+                    <h2>Add Connections</h2>
+                    <p>Add connections to your account to personalize your Study Hub experience</p>
+                </div>
+            </div>
+            <div class="card-action">
+                <a href="#" class="action-button">Add Connections</a>
+            </div>
+        </div>
+
+        <!-- Bug Report Card -->
+        <div class="info-card full-width">
+            <div class="card-content">
+                <div class="card-text">
+                    <h2>Report a Bug</h2>
+                    <p>Report a bug to the Study Hub team</p>
+                </div>
+            </div>
+            <div class="card-action">
+                <a href="#" class="action-button" onclick="openBugModal()">Click here to report a bug</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Bug Report Modal -->
+<div id="bugReportModal" class="modal">
+    <div class="modal-content">
+        <span class="close-button" onclick="closeBugModal()">&times;</span>
+        <h2>Report a Bug</h2>
+        <form id="bugReportForm">
+            <div class="form-group">
+                <label for="topic">Topic:</label>
+                <input type="text" id="topic" name="topic" required>
+            </div>
+            <div class="form-group">
+                <label for="message">Message:</label>
+                <textarea id="message" name="message" required></textarea>
+            </div>
+            <button type="submit" class="submit-button">Send Report</button>
+        </form>
+    </div>
+</div>
+
+<style>
+    .profile-container {
+        padding: 40px;
+    }
+
+    .profile-header {
+        background: white;
+        border-radius: 8px;
+        padding: 24px;
+        margin-bottom: 24px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .profile-info {
+        display: flex;
+        align-items: center;
+        gap: 24px;
+    }
+
+    .profile-image img {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+
+    .cards-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 24px;
+    }
+
+    .info-card {
+        background: white;
+        border-radius: 8px;
+        padding: 24px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .full-width {
+        grid-column: 1 / -1;
+    }
+
+    .card-content {
+        margin-bottom: 20px;
+    }
+
+    .action-button {
+        color: #1a73e8;
+        text-decoration: none;
+        font-weight: 500;
+    }
+
+    .action-button:hover {
+        text-decoration: underline;
+    }
+
+    /* Modal Styles */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        z-index: 1000;
+    }
+
+    .modal-content {
+        background-color: white;
+        margin: 15% auto;
+        padding: 20px;
+        border-radius: 8px;
+        width: 80%;
+        max-width: 500px;
+        position: relative;
+    }
+
+    .close-button {
+        position: absolute;
+        right: 20px;
+        top: 10px;
+        font-size: 24px;
+        cursor: pointer;
+    }
+
+    .form-group {
+        margin-bottom: 15px;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+    }
+
+    .form-group input,
+    .form-group textarea {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+
+    .form-group textarea {
+        height: 100px;
+        resize: vertical;
+    }
+
+    .submit-button {
+        background-color: #1a73e8;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .submit-button:hover {
+        background-color: #1557b0;
+    }
+</style>
+
+<script>
+    function openBugModal() {
+        document.getElementById('bugReportModal').style.display = 'block';
+    }
+
+    function closeBugModal() {
+        document.getElementById('bugReportModal').style.display = 'none';
+    }
+
+    // Close modal when clicking outside of it
+    window.onclick = function(event) {
+        const modal = document.getElementById('bugReportModal');
+        if (event.target == modal) {
+            modal.style.display = 'none';
+        }
+    }
+
+    // Update the form submission handler with CSRF token
+    document.getElementById('bugReportForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const topic = document.getElementById('topic').value;
+        const message = document.getElementById('message').value;
+        
+        try {
+            const response = await fetch('/submit_bug_report', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({ topic, message })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                alert('Bug report sent successfully!');
+                closeBugModal();
+                this.reset();
+            } else {
+                alert('Error sending bug report: ' + result.message);
+            }
+        } catch (error) {
+            alert('Error sending bug report: ' + error.message);
+        }
+    });
+</script>
+{% endblock %}

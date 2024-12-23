@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- Header -->
+<div class="dashboard-header">
+    <h1>Course Details:</h1>
+</div>
+
+<!-- Course Header Section -->
+<div class="course-header">
+    <h2>{{ course.name }}</h2>
+    <a href="{{ url_for('create_notes', course_id=course.id) }}" class="create-notes-btn" style="float: right; padding: 10px 20px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px; font-weight: 500; transition: background-color 0.2s; margin-top: -40px;">Take Notes</a>
+</div>
+
+<div class="past-assignments">
+    <div class="assignments-header">
+        <h2>Past Assignments</h2>
+        <div class="current-grade">Current Grade: {{ course.grade|default('N/A') }}</div>
+    </div>
+    <div style="margin-top: 20px;">
+        <table class="assignments-table">
+            <thead>
+                <tr>
+                    <th class="name-column">Name</th>
+                    <th class="grade-column">Grade</th>
+                    <th class="submitted-column">Submitted</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for assignment in past_assignments %}
+                <tr style="cursor: pointer" onclick="window.location.href='{{ url_for('assignment_details', course_id=course.id, assignment_id=assignment.id) }}'">
+                    <td>{{ assignment.name }}</td>
+                    <td class="{{ assignment.percentage|get_grade_color }}">{{ assignment.grade }}</td>
+                    <td>{{ assignment.submitted_at|format_date }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+.past-assignments {
+    margin-top: 20px;
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+}
+
+.assignments-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.assignments-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+.current-grade {
+    font-size: 1.1rem;
+}
+
+.assignments-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+.assignments-table th,
+.assignments-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+}
+
+.assignments-table th {
+    font-weight: 600;
+    color: #666;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+}
+
+.assignments-table tr:hover {
+    background-color: #f8f9fa;
+}
+
+.name-column {
+    width: 60%;
+}
+
+.grade-column {
+    width: 20%;
+}
+
+.submitted-column {
+    width: 20%;
+}
+
+/* Grade colors */
+.grade-green {
+    color: #28a745;
+}
+
+.grade-red {
+    color: #dc3545;
+}
+
+.grade-yellow {
+    color: #ffc107;
+}
+</style>
+
+<script type="module">
+    // Your Firebase configuration and script code here
+</script>
+{% endblock %}

@@ -1,0 +1,241 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="calendar-container">
+    <div class="calendar-header">
+        <button class="nav-button" id="prevMonth">←</button>
+        <h2 id="monthYear">December 2024</h2>
+        <button class="nav-button" id="nextMonth">→</button>
+    </div>
+
+    <div class="calendar-grid">
+        <div class="weekday" role="columnheader">Sun</div>
+        <div class="weekday" role="columnheader">Mon</div>
+        <div class="weekday" role="columnheader">Tue</div>
+        <div class="weekday" role="columnheader">Wed</div>
+        <div class="weekday" role="columnheader">Thu</div>
+        <div class="weekday" role="columnheader">Fri</div>
+        <div class="weekday" role="columnheader">Sat</div>
+        
+        <div id="calendar-days" role="grid"></div>
+    </div>
+</div>
+
+<style>
+.calendar-container {
+    background: white;
+    border-radius: 12px;
+    padding: 32px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin: 20px;
+    max-width: 1200px;
+}
+
+.calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px;
+}
+
+.nav-button {
+    background: #f5f5f5;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 18px;
+}
+
+.nav-button:hover {
+    background: #e0e0e0;
+}
+
+#monthYear {
+    font-size: 24px;
+    font-weight: 500;
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+}
+
+.weekday {
+    text-align: center;
+    font-weight: 500;
+    padding: 12px;
+    background: #f5f5f5;
+    border-radius: 6px;
+}
+
+#calendar-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+    grid-column: 1 / -1;
+}
+
+.calendar-day {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    min-height: 120px;
+    padding: 8px;
+    position: relative;
+}
+
+.calendar-day.other-month {
+    background: #f9f9f9;
+    color: #999;
+}
+
+.calendar-day.today {
+    background: #e3f2fd;
+    border-color: #2196f3;
+}
+
+.day-number {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    font-size: 14px;
+    color: #666;
+}
+
+.event {
+    margin-top: 24px;
+    font-size: 12px;
+    padding: 4px 8px;
+    background: #f0f0f0;
+    border-radius: 4px;
+    margin-bottom: 4px;
+    cursor: pointer;
+}
+
+.event:hover {
+    background: #e0e0e0;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const calendarDays = document.getElementById('calendar-days');
+    const monthYearElement = document.getElementById('monthYear');
+    let currentDate = new Date();
+
+    function renderCalendar(date) {
+        const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
+        const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+        const startingDay = firstDay.getDay();
+        const monthLength = lastDay.getDate();
+        
+        // Clear previous calendar
+        calendarDays.innerHTML = '';
+        
+        // Update month and year display
+        const months = ['January', 'February', 'March', 'April', 'May', 'June', 
+                       'July', 'August', 'September', 'October', 'November', 'December'];
+        monthYearElement.textContent = `${months[date.getMonth()]} ${date.getFullYear()}`;
+
+        // Previous month's days
+        const prevMonthLastDay = new Date(date.getFullYear(), date.getMonth(), 0).getDate();
+        for (let i = startingDay - 1; i >= 0; i--) {
+            const dayDiv = createDayElement(prevMonthLastDay - i, true);
+            calendarDays.appendChild(dayDiv);
+        }
+
+        // Current month's days
+        const today = new Date();
+        for (let i = 1; i <= monthLength; i++) {
+            const isToday = date.getMonth() === today.getMonth() && 
+                           date.getFullYear() === today.getFullYear() && 
+                           i === today.getDate();
+            const dayDiv = createDayElement(i, false, isToday);
+            calendarDays.appendChild(dayDiv);
+        }
+
+        // Next month's days
+        const totalDays = calendarDays.children.length;
+        let nextMonthDay = 1;
+        while (totalDays < 42) {  // 6 rows * 7 days = 42
+            const dayDiv = createDayElement(nextMonthDay++, true);
+            calendarDays.appendChild(dayDiv);
+        }
+    }
+
+    function createDayElement(day, isOtherMonth, isToday = false) {
+        const dayDiv = document.createElement('div');
+        dayDiv.className = `calendar-day${isOtherMonth ? ' other-month' : ''}${isToday ? ' today' : ''}`;
+        dayDiv.setAttribute('role', 'gridcell');
+        dayDiv.setAttribute('tabindex', '0');
+        
+        const dayNumber = document.createElement('span');
+        dayNumber.className = 'day-number';
+        dayNumber.textContent = day;
+        dayDiv.appendChild(dayNumber);
+        
+        return dayDiv;
+    }
+
+    // Navigation handlers
+    document.getElementById('prevMonth').addEventListener('click', () => {
+        currentDate.setMonth(currentDate.getMonth() - 1);
+        renderCalendar(currentDate);
+        fetchAndDisplayEvents(currentDate);
+    });
+
+    document.getElementById('nextMonth').addEventListener('click', () => {
+        currentDate.setMonth(currentDate.getMonth() + 1);
+        renderCalendar(currentDate);
+        fetchAndDisplayEvents(currentDate);
+    });
+
+    // Separate event fetching into its own function
+    function fetchAndDisplayEvents(date) {
+        fetch('/api/calendar-events')
+            .then(response => response.json())
+            .then(events => {
+                const filteredEvents = events.filter(event => {
+                    const eventDate = new Date(event.date);
+                    return eventDate.getMonth() === date.getMonth() && 
+                           eventDate.getFullYear() === date.getFullYear();
+                });
+                
+                displayEvents(filteredEvents);
+            })
+            .catch(error => console.error('Error fetching events:', error));
+    }
+
+    function displayEvents(events) {
+        const dayElements = document.querySelectorAll('.calendar-day');
+        const startingDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
+        
+        // Clear existing events
+        dayElements.forEach(day => {
+            const events = day.querySelectorAll('.event');
+            events.forEach(event => event.remove());
+        });
+        
+        // Add new events
+        events.forEach(event => {
+            const eventDate = new Date(event.date);
+            const dayIndex = eventDate.getDate() + startingDay - 1;
+            
+            if (dayElements[dayIndex]) {
+                const eventDiv = document.createElement('div');
+                eventDiv.className = 'event';
+                eventDiv.textContent = event.title;
+                eventDiv.title = `${event.title}\nDue: ${eventDate.toLocaleDateString()} ${eventDate.toLocaleTimeString()}`;
+                dayElements[dayIndex].appendChild(eventDiv);
+            }
+        });
+    }
+
+    // Initial render
+    renderCalendar(currentDate);
+    fetchAndDisplayEvents(currentDate);
+});
+</script>
+{% endblock %}

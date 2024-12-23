@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Todo List Creator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            background: var(--background-color, #1a1a1a);
+        }
+
+        .back-button-container {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+        }
+
+        .back-button {
+            display: inline-block;
+            padding: 10px 20px;
+            background: rgba(26, 26, 26, 0.9);
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .back-button:hover {
+            background: rgba(26, 26, 26, 0.95);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .todo-container {
+            max-width: 800px;
+            width: 90%;
+            margin: 80px auto 40px;
+            padding: 30px;
+            background: rgba(26, 26, 26, 0.9);
+            border-radius: 8px;
+            color: white;
+        }
+
+        .todo-form {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .todo-input {
+            flex: 1;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        .todo-date {
+            width: 150px;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        .add-button {
+            padding: 10px 20px;
+            background: #4CAF50;
+            border: none;
+            border-radius: 4px;
+            color: white;
+            cursor: pointer;
+        }
+
+        .todo-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .todo-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            margin-bottom: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+
+        .todo-item button {
+            padding: 5px 10px;
+            background: #f44336;
+            border: none;
+            border-radius: 4px;
+            color: white;
+            cursor: pointer;
+        }
+
+        .generate-pdf {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            background: #2196F3;
+            border: none;
+            border-radius: 4px;
+            color: white;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        .assignments-section,
+        .custom-tasks-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+        }
+
+        .assignments-section h3,
+        .custom-tasks-section h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #2196F3;
+        }
+
+        .todo-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .todo-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            margin-bottom: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+
+        .todo-item button {
+            padding: 5px 10px;
+            background: #f44336;
+            border: none;
+            border-radius: 4px;
+            color: white;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="back-button-container">
+        <a href="javascript:history.back()" class="back-button">← Back</a>
+    </div>
+    <div class="todo-container">
+        <h2>Create Your Todo List</h2>
+        
+        <div class="assignments-section">
+            <h3>Current Assignments</h3>
+            <ul class="todo-list" id="assignmentsList">
+                <!-- Canvas assignments will be loaded here -->
+            </ul>
+        </div>
+        
+        <div class="custom-tasks-section">
+            <h3>Add Custom Tasks</h3>
+            <form class="todo-form" id="todoForm">
+                <input type="text" class="todo-input" id="taskInput" placeholder="Enter a task..." required>
+                <input type="date" class="todo-date" id="dateInput" required>
+                <button type="submit" class="add-button">Add Task</button>
+            </form>
+
+            <ul class="todo-list" id="customTodoList">
+                <!-- Custom todo items will be added here dynamically -->
+            </ul>
+        </div>
+
+        <button class="generate-pdf" id="generatePDF">Generate PDF</button>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const todoForm = document.getElementById('todoForm');
+            const assignmentsList = document.getElementById('assignmentsList');
+            const customTodoList = document.getElementById('customTodoList');
+            const generatePDFButton = document.getElementById('generatePDF');
+            
+            let todos = [];
+
+            // Fetch and display Canvas assignments
+            fetch('/api/get-assignments')
+                .then(response => response.json())
+                .then(assignments => {
+                    // Filter for current assignments (due date is in the future)
+                    const currentDate = new Date();
+                    const currentAssignments = assignments.filter(assignment => {
+                        if (!assignment.due_at) return false;
+                        const dueDate = new Date(assignment.due_at);
+                        return dueDate >= currentDate;
+                    });
+
+                    // Sort by due date
+                    currentAssignments.sort((a, b) => {
+                        const dateA = new Date(a.due_at);
+                        const dateB = new Date(b.due_at);
+                        return dateA - dateB;
+                    });
+
+                    // Add filtered assignments to todos
+                    currentAssignments.forEach(assignment => {
+                        const todo = {
+                            task: `${assignment.name} (${assignment.course_name})`,
+                            due_date: assignment.due_at ? new Date(assignment.due_at).toISOString().split('T')[0] : 'No due date'
+                        };
+                        todos.push(todo);
+                        addTodoToList(todo, assignmentsList);
+                    });
+                })
+                .catch(error => console.error('Error fetching assignments:', error));
+
+            todoForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const taskInput = document.getElementById('taskInput');
+                const dateInput = document.getElementById('dateInput');
+                
+                const todo = {
+                    task: taskInput.value,
+                    due_date: dateInput.value
+                };
+                
+                todos.push(todo);
+                addTodoToList(todo, customTodoList);
+                
+                taskInput.value = '';
+                dateInput.value = '';
+            });
+
+            function addTodoToList(todo, listElement) {
+                const li = document.createElement('li');
+                li.className = 'todo-item';
+                li.innerHTML = `
+                    <span>${todo.task} - Due: ${todo.due_date}</span>
+                    <button onclick="removeTodo(this)">Remove</button>
+                `;
+                listElement.appendChild(li);
+            }
+
+            window.removeTodo = function(button) {
+                const li = button.parentElement;
+                const todoText = li.querySelector('span').textContent;
+                const index = todos.findIndex(todo => 
+                    `${todo.task} - Due: ${todo.due_date}` === todoText
+                );
+                if (index !== -1) {
+                    todos.splice(index, 1);
+                }
+                li.remove();
+            };
+
+            generatePDFButton.addEventListener('click', function() {
+                fetch('/api/generate-todo-pdf', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        title: 'My Todo List',
+                        items: todos
+                    })
+                })
+                .then(response => response.blob())
+                .then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'todo_list.pdf';
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                })
+                .catch(error => console.error('Error:', error));
+            });
+        });
+    </script>
+</body>
+</html>

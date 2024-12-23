@@ -1,0 +1,418 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="assignment-details-container">
+    <a href="{{ url_for('course_page', course_id=assignment.course_id) }}" class="back-button" style="display: inline-block; padding: 8px 16px; background-color: #f0f0f0; color: #333; text-decoration: none; border-radius: 4px; font-weight: 500; transition: background-color 0.2s; margin-bottom: 20px;">
+        <span style="margin-right: 4px;">←</span>Back to Course
+    </a>
+
+    <div class="info-box" style="background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 24px; margin: 20px 0; position: relative;">
+        <button id="submitHomeworkBtn" onclick="submitHomework()" class="submit-homework-button" style="position: absolute; top: 24px; right: 250px; padding: 12px 24px; background-color: #2196F3; color: white; border: none; border-radius: 6px; font-size: 16px; font-weight: 500; cursor: pointer; transition: background-color 0.2s;">
+            Submit Assignment
+        </button>
+        <button id="startHomeworkBtn" onclick="toggleDropdown(event)" class="start-homework-button" style="position: absolute; top: 24px; right: 24px; padding: 12px 24px; background-color: #4CAF50; color: white; border: none; border-radius: 6px; font-size: 16px; font-weight: 500; cursor: pointer; transition: background-color 0.2s">
+            Start Assignment
+            <i class="fas fa-chevron-down" style="margin-left: 8px;"></i>
+        </button>
+        <div id="homeworkDropdown" class="dropdown-content">
+            <a href="#" onclick="startHomework('docs-mla')">
+                <i class="fas fa-file-alt"></i>
+                MLA Format
+            </a>
+            <a href="#" onclick="startHomework('docs-apa')">
+                <i class="fas fa-file-alt"></i>
+                APA Format
+            </a>
+            <a href="#" onclick="startHomework('sheets')">
+                <i class="fas fa-file-excel"></i>
+                Google Sheets
+            </a>
+            <a href="#" onclick="startHomework('slides')">
+                <i class="fas fa-file-powerpoint"></i>
+                Google Slides
+            </a>
+        </div>
+
+        <div class="assignment-header" style="border-bottom: 1px solid #eee; padding-bottom: 16px; margin-bottom: 20px;">
+            <h1 class="assignment-title" style="margin: 0; color: #333; font-size: 24px;">{{ assignment.title }}</h1>
+        </div>
+
+        <div class="assignment-meta" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+            <div class="meta-item" style="background: #f8f9fa; padding: 12px; border-radius: 8px;">
+                <span class="meta-label" style="display: block; color: #666; font-size: 14px; margin-bottom: 4px;">Professor</span>
+                <span class="meta-value" style="display: block; color: #333; font-weight: 500;">{{ assignment.professor }}</span>
+            </div>
+            <div class="meta-item" style="background: #f8f9fa; padding: 12px; border-radius: 8px;">
+                <span class="meta-label" style="display: block; color: #666; font-size: 14px; margin-bottom: 4px;">Due Date</span>
+                <span class="meta-value" style="display: block; color: #333; font-weight: 500;">{{ assignment.due_date|format_date }}</span>
+            </div>
+            <div class="meta-item" style="background: #f8f9fa; padding: 12px; border-radius: 8px;">
+                <span class="meta-label" style="display: block; color: #666; font-size: 14px; margin-bottom: 4px;">Points Possible</span>
+                <span class="meta-value" style="display: block; color: #333; font-weight: 500;">{{ assignment.points_possible }}</span>
+            </div>
+            <div class="meta-item" style="background: #f8f9fa; padding: 12px; border-radius: 8px;">
+                <span class="meta-label" style="display: block; color: #666; font-size: 14px; margin-bottom: 4px;">Submission Type</span>
+                <span class="meta-value" style="display: block; color: #333; font-weight: 500;">{{ assignment.submission_types|join(', ')|title }}</span>
+            </div>
+        </div>
+
+        <div class="assignment-description" style="background: #fff; padding: 16px; border-radius: 8px; border: 1px solid #eee;">
+            {{ assignment.description|safe }}
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Check if document exists when page loads
+    const courseId = {{ assignment.course_id }};
+    const assignmentId = {{ assignment.assignment_id }};
+    
+    fetch('/api/create-homework-doc', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token() }}'
+        },
+        body: JSON.stringify({
+            course_id: courseId,
+            assignment_id: assignmentId,
+            check_only: true  // Add this flag to just check existence
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        const btn = document.getElementById('startHomeworkBtn');
+        if (data.doc_info) {
+            btn.textContent = 'Open Assignment';
+        } else {
+            btn.textContent = 'Start Assignment';
+        }
+    })
+    .catch(error => {
+        console.error('Error checking document:', error);
+    });
+});
+
+function toggleDropdown(event) {
+    event.stopPropagation();
+    document.getElementById("homeworkDropdown").classList.toggle("show");
+}
+
+// Close dropdown when clicking outside
+window.onclick = function(event) {
+    if (!event.target.matches('.start-homework-button') && !event.target.matches('.fa-chevron-down')) {
+        var dropdowns = document.getElementsByClassName("dropdown-content");
+        for (var i = 0; i < dropdowns.length; i++) {
+            var openDropdown = dropdowns[i];
+            if (openDropdown.classList.contains('show')) {
+                openDropdown.classList.remove('show');
+            }
+        }
+    }
+}
+
+function startHomework(docType = 'docs-mla') {
+    const btn = document.getElementById('startHomeworkBtn');
+    btn.disabled = true;
+    btn.textContent = 'Creating Document...';
+    
+    const courseId = {{ assignment.course_id }};
+    const assignmentId = {{ assignment.assignment_id }};
+    
+    // Map document types to their corresponding functions
+    const docTypeMap = {
+        'docs-mla': 'mla',
+        'docs-apa': 'apa',
+        'sheets': 'sheets',
+        'slides': 'slides'
+    };
+    
+    fetch('/api/create-homework-doc', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token() }}'
+        },
+        body: JSON.stringify({
+            course_id: courseId,
+            assignment_id: assignmentId,
+            doc_type: docTypeMap[docType] // Send the mapped document type
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.doc_info && data.doc_info.url) {
+            btn.textContent = 'Document Created!';
+            window.open(data.doc_info.url, '_blank');
+        } else {
+            throw new Error('Invalid response format');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error creating document: ' + error.message);
+    })
+    .finally(() => {
+        setTimeout(() => {
+            btn.disabled = false;
+            btn.innerHTML = 'Start Assignment <i class="fas fa-chevron-down" style="margin-left: 8px;"></i>';
+        }, 2000);
+    });
+}
+
+function submitHomework() {
+    const courseId = {{ assignment.course_id }};
+    const assignmentId = {{ assignment.assignment_id }};
+    
+    // Get the document info from Firebase
+    fetch('/api/create-homework-doc', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token() }}'
+        },
+        body: JSON.stringify({
+            course_id: courseId,
+            assignment_id: assignmentId,
+            check_only: true  // Just check if document exists
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.doc_info && data.doc_info.document_id) {
+            // Document exists, submit it
+            return fetch('/api/submit-doc', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({
+                    course_id: courseId,
+                    assignment_id: assignmentId,
+                    document_id: data.doc_info.document_id
+                })
+            });
+        } else {
+            throw new Error('No document found. Please create a document first.');
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Create confetti effect
+            const duration = 3000;
+            const end = Date.now() + duration;
+
+            (function frame() {
+                confetti({
+                    particleCount: 7,
+                    angle: 60,
+                    spread: 55,
+                    origin: { x: 0 },
+                    colors: ['#ff0000', '#00ff00', '#0000ff']
+                });
+                confetti({
+                    particleCount: 7,
+                    angle: 120,
+                    spread: 55,
+                    origin: { x: 1 },
+                    colors: ['#ff0000', '#00ff00', '#0000ff']
+                });
+
+                if (Date.now() < end) {
+                    requestAnimationFrame(frame);
+                }
+            }());
+
+            // Show success message
+            alert('Assignment submitted successfully!');
+        } else {
+            throw new Error(data.error || 'Failed to submit assignment');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert(error.message);
+    });
+}
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+
+<style>
+    .assignment-details-container {
+        background: white;
+        border-radius: 8px;
+        padding: 40px;
+        margin: 0;  /* Remove margin since the main-content already has padding */
+        width: 100%;
+        box-sizing: border-box;
+        position: relative;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        border: 1px solid #e0e0e0;
+    }
+
+    .assignment-header {
+        margin-bottom: 30px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #eee;
+    }
+
+    .assignment-title {
+        font-size: 24px;
+        font-weight: 500;
+        color: #333;
+        margin-right: 200px; /* Make space for the button */
+    }
+
+    .assignment-meta {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 24px;
+        margin: 30px 0;
+        padding: 20px;
+        background: #f8f9fa;
+        border-radius: 8px;
+    }
+
+    .meta-item {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .meta-label {
+        color: #666;
+        text-transform: uppercase;
+        font-size: 12px;
+        font-weight: 500;
+        letter-spacing: 0.5px;
+    }
+
+    .meta-value {
+        color: #333;
+        font-size: 16px;
+        font-weight: 500;
+    }
+
+    .assignment-description {
+        line-height: 1.6;
+        color: #444;
+        font-size: 16px;
+    }
+
+    .back-button {
+        display: inline-flex;
+        align-items: center;
+        padding: 8px 0;
+        color: #666;
+        text-decoration: none;
+        margin-bottom: 24px;
+        font-size: 14px;
+        font-weight: 500;
+        transition: color 0.2s;
+    }
+
+    .back-button:hover {
+        color: #333;
+    }
+
+    .start-homework-button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .submit-homework-button {
+        position: absolute;
+        top: 24px;
+        right: 320px;
+        padding: 12px 24px;
+        background-color: #2196F3;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 16px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+
+    .submit-homework-button:hover {
+        background: #1976D2;
+    }
+
+    .submit-homework-button:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+    }
+
+    .dropdown-content {
+        display: none;
+        position: absolute;
+        top: 70px;
+        right: 24px;
+        background-color: white;
+        min-width: 200px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        z-index: 1000;
+        border-radius: 8px;
+        border: 1px solid #eee;
+    }
+
+    .dropdown-content a {
+        color: #333;
+        padding: 12px 16px;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        transition: background-color 0.2s;
+        font-size: 14px;
+    }
+
+    .dropdown-content a:first-child {
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+    }
+
+    .dropdown-content a:last-child {
+        border-bottom-left-radius: 8px;
+        border-bottom-right-radius: 8px;
+    }
+
+    .dropdown-content a:hover {
+        background-color: #f8f9fa;
+    }
+
+    .dropdown-content a i {
+        font-size: 16px;
+        width: 20px;
+        text-align: center;
+    }
+
+    .dropdown-content a i.fa-file-alt {
+        color: #4285f4;
+    }
+
+    .dropdown-content a i.fa-file-excel {
+        color: #0f9d58;
+    }
+
+    .dropdown-content a i.fa-file-powerpoint {
+        color: #f4b400;
+    }
+
+    .show {
+        display: block;
+    }
+
+    /* Add a subtle separator between items */
+    .dropdown-content a:not(:last-child) {
+        border-bottom: 1px solid #eee;
+    }
+</style>
+{% endblock %}

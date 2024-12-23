@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Summarize Text - Student Hub</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <style>
+        .container {
+            min-height: 100vh !important;
+            padding: 60px 20px 20px 20px !important;
+            background: linear-gradient(45deg, #1a1a1a, #2c3e50) !important;
+        }
+
+        .summarize-content {
+            max-width: 800px !important;
+            margin: 0 auto !important;
+            padding: 20px !important;
+        }
+
+        .text-input {
+            width: 100% !important;
+            height: 200px !important;
+            padding: 15px !important;
+            margin-bottom: 20px !important;
+            background: rgba(26, 26, 26, 0.9) !important;
+            border: 2px solid rgba(255, 255, 255, 0.2) !important;
+            border-radius: 8px !important;
+            color: white !important;
+            font-family: inherit !important;
+            resize: vertical !important;
+        }
+
+        .submit-button {
+            padding: 15px 30px !important;
+            background: rgba(26, 26, 26, 0.9) !important;
+            border: 2px solid rgba(255, 255, 255, 0.2) !important;
+            color: white !important;
+            border-radius: 8px !important;
+            cursor: pointer !important;
+            font-size: 1em !important;
+            transition: background 0.3s ease !important;
+        }
+
+        .submit-button:hover {
+            background: rgba(255, 255, 255, 0.1) !important;
+        }
+
+        .summary-result {
+            margin-top: 30px !important;
+            padding: 20px !important;
+            background: rgba(26, 26, 26, 0.9) !important;
+            border: 2px solid rgba(255, 255, 255, 0.2) !important;
+            border-radius: 8px !important;
+            color: white !important;
+            display: none;
+        }
+
+        .back-button {
+            position: absolute !important;
+            top: 80px !important;
+            left: 20px !important;
+            padding: 10px 20px !important;
+            background: rgba(26, 26, 26, 0.9) !important;
+            border: 2px solid rgba(255, 255, 255, 0.2) !important;
+            color: white !important;
+            border-radius: 8px !important;
+            cursor: pointer !important;
+            text-decoration: none !important;
+        }
+
+        .loading {
+            display: none;
+            color: white !important;
+            text-align: center !important;
+            margin: 20px 0 !important;
+        }
+    </style>
+</head>
+<body>
+    <header class="dashboard-header">
+        <h2>Summarize Text</h2>
+        <button class="login-button">Login</button>
+    </header>
+    <div class="container">
+        <a href="javascript:history.back()" class="back-button">← Back</a>
+        <div class="summarize-content">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <textarea class="text-input" placeholder="Enter the text you want to summarize..."></textarea>
+            <button class="submit-button">Summarize</button>
+            <div class="loading">Summarizing...</div>
+            <div class="summary-result"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const submitButton = document.querySelector('.submit-button');
+            const textInput = document.querySelector('.text-input');
+            const summaryResult = document.querySelector('.summary-result');
+            const loading = document.querySelector('.loading');
+            const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+
+            submitButton.addEventListener('click', async function() {
+                const text = textInput.value.trim();
+                if (!text) {
+                    alert('Please enter some text to summarize.');
+                    return;
+                }
+
+                loading.style.display = 'block';
+                summaryResult.style.display = 'none';
+                submitButton.disabled = true;
+
+                try {
+                    const response = await fetch('/api/summarize-text', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': csrfToken
+                        },
+                        body: JSON.stringify({ text: text })
+                    });
+
+                    const data = await response.json();
+                    
+                    if (!response.ok || !data.summary) {
+                        throw new Error(data.error || 'Failed to generate summary');
+                    }
+
+                    summaryResult.textContent = data.summary;
+                    summaryResult.style.display = 'block';
+                } catch (error) {
+                    console.error('Error:', error);
+                    summaryResult.textContent = `Error: ${error.message}`;
+                    summaryResult.style.display = 'block';
+                } finally {
+                    loading.style.display = 'none';
+                    submitButton.disabled = false;
+                }
+            });
+        });
+    </script>
+</body>
+</html>

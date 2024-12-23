@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>Select Assignment - Student Hub</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <style>
+        .container {
+            min-height: 100vh !important;
+            height: auto !important;
+            padding-bottom: 40px !important;
+            background: linear-gradient(45deg, #1a1a1a, #2c3e50) !important;
+            margin: 0 !important;
+            width: 100% !important;
+        }
+
+        .assignments-list {
+            max-width: 1200px !important;
+            margin: 0 auto !important;
+            margin-top: 60px !important;
+            padding: 20px !important;
+            background: linear-gradient(45deg, #1a1a1a, #2c3e50) !important;
+            border-radius: 8px !important;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2) !important;
+            backdrop-filter: blur(10px) !important;
+        }
+
+        .assignment-card {
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            padding: 15px 20px !important;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.15) !important;
+            cursor: pointer !important;
+            position: relative !important;
+        }
+
+        .assignment-card:last-child {
+            border-bottom: none !important;
+        }
+
+        .assignment-card:hover {
+            background-color: rgba(255, 255, 255, 0.05) !important;
+            transform: translateY(-2px) !important;
+            transition: all 0.3s ease !important;
+        }
+
+        .assignment-number {
+            position: absolute !important;
+            left: 5px !important;
+            color: #a0a0a0 !important;
+            font-size: 0.9em !important;
+            width: 25px !important;
+            text-align: right !important;
+        }
+
+        .assignment-info {
+            flex: 1 !important;
+            margin-left: 35px !important;
+        }
+
+        .assignment-info h3 {
+            margin: 0 0 5px 0 !important;
+            color: #e0e0e0 !important;
+            font-weight: 500 !important;
+        }
+
+        .assignment-info p {
+            margin: 0 !important;
+            color: #a0a0a0 !important;
+            font-size: 0.95em !important;
+        }
+
+        .loading-spinner {
+            margin-left: 20px !important;
+            color: #a0a0a0 !important;
+        }
+    </style>
+</head>
+<body>
+    <header class="dashboard-header">
+        <h2>Select Assignment</h2>
+        <a href="{{ url_for('dashboard') }}" class="back-button">Back</a>
+    </header>
+    <div class="container">
+        <div class="assignments-list">
+            {% for assignment in assignments %}
+            <div class="assignment-card" onclick="selectAssignment(this, '{{ assignment.index }}')">
+                <span class="assignment-number">{{ loop.index }}.</span>
+                <div class="assignment-info">
+                    <h3>{{ assignment.name }}</h3>
+                    <p>Course: {{ assignment.course_name }}</p>
+                    <p>Due: {{ assignment.due_date }}</p>
+                </div>
+                <div class="loading-spinner" style="display: none;">Loading...</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    <script>
+        function selectAssignment(cardElement, index) {
+            // Disable all cards
+            const cards = document.querySelectorAll('.assignment-card');
+            cards.forEach(card => card.style.pointerEvents = 'none');
+            
+            // Show loading spinner on clicked card
+            const spinner = cardElement.querySelector('.loading-spinner');
+            spinner.style.display = 'block';
+            
+            // Ensure CSRF token is present
+            const csrfToken = '{{ csrf_token() }}';
+            if (!csrfToken) {
+                alert('Security token missing. Please refresh the page.');
+                return;
+            }
+
+            fetch('/api/create-homework-doc', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({
+                    selected_assignment_index: index
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.status === 'document_created') {
+                    window.open(data.doc_info.url, '_blank');
+                    window.location.href = '/dashboard';
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error creating document. Please try again.');
+            })
+            .finally(() => {
+                // Hide loading spinner and re-enable cards
+                spinner.style.display = 'none';
+                cards.forEach(card => card.style.pointerEvents = 'auto');
+            });
+        }
+    </script>
+</body>
+</html>

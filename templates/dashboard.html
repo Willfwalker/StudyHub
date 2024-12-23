@@ -1,0 +1,400 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="dashboard-header">
+    <div class="header-left">
+        <h1>Dashboard</h1>
+    </div>
+    <div class="header-right">
+    </div>
+</div>
+
+<section class="classes-section">
+    <div class="section-header">
+        <h2>Your Classes</h2>
+        <div class="header-status">
+            <div class="status-label">Current Status:</div>
+            <div class="status-wrapper {{ homework_status }}">
+                <div class="status-indicator"></div>
+                <div class="status-text">
+                    {% if homework_status == 'green' %}
+                        You're All Caught Up!
+                    {% elif homework_status == 'yellow' %}
+                        You're So Close!
+                    {% else %}
+                        You've got some work you need to do!
+                    {% endif %}
+                </div>
+            </div>
+            <div class="gpa-display">
+                <span>Current GPA</span>
+                <span class="gpa-value {% if current_gpa != 'N/A' %}
+                    {% if current_gpa >= 3.5 %}green-text
+                    {% elif current_gpa >= 2.5 %}yellow-text
+                    {% else %}red-text{% endif %}
+                {% endif %}">{{ current_gpa }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="class-grid">
+        {% for class in classes %}
+        <div class="class-card" onclick="window.location.href='{{ url_for('course_page', course_id=class.id) }}'">
+            <img src="{{ class.image_path }}" alt="{{ class.name }}" class="class-image">
+            <div class="class-info">
+                <h3>{{ class.name }}</h3>
+                <p class="class-grade">
+                    Current Grade: 
+                    {% if class.current_score != 'N/A' %}
+                        {{ "%.1f"|format(class.current_score|float) }}%
+                        {% if class.letter_grade %}
+                            ({{ class.letter_grade }})
+                        {% endif %}
+                    {% else %}
+                        N/A
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+<!-- Bottom sections -->
+<div class="bottom-sections">
+    <!-- Calendar Section -->
+    <section class="calendar-section">
+        <h2>Calendar</h2>
+        <div id="calendar"></div>
+        <div class="calendar-preview">
+            <!-- Calendar content -->
+            {% for event in upcoming_events %}
+            <div class="calendar-event">
+                <div class="event-date">{{ event.date|format_date }}</div>
+                <div class="event-details">
+                    <h4>{{ event.title }}</h4>
+                    <p>{{ event.description }}</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <!-- Todo List Section -->
+    <section class="todo-section">
+        <h2>Todo List</h2>
+        <div class="todo-list">
+            {% for task in todo_items %}
+            <div class="todo-item">
+                <input type="checkbox" id="task-{{ loop.index }}" {% if task.completed %}checked{% endif %}>
+                <label for="task-{{ loop.index }}">{{ task.title }}</label>
+                <span class="due-date">{{ task.due_date|format_date }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+</div>
+
+<style>
+    .dashboard-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+    }
+
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .header-status {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .status-label {
+        color: #666;
+        font-size: 0.95rem;
+    }
+
+    .status-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        background-color: rgba(0, 0, 0, 0.05);
+        padding: 0.5rem 1rem;
+        border-radius: 12px;
+    }
+
+    .status-wrapper.green {
+        background-color: rgba(76, 175, 80, 0.1);
+    }
+
+    .status-wrapper.yellow {
+        background-color: rgba(255, 193, 7, 0.1);
+    }
+
+    .status-wrapper.red {
+        background-color: rgba(244, 67, 54, 0.1);
+    }
+
+    .status-indicator {
+        width: 24px;
+        height: 24px;
+        border-radius: 12px;
+    }
+
+    .green .status-indicator {
+        background-color: #4CAF50;
+    }
+
+    .green .status-text {
+        color: #2E7D32;
+    }
+
+    .yellow .status-indicator {
+        background-color: #FFC107;
+    }
+
+    .yellow .status-text {
+        color: #F57F17;
+    }
+
+    .red .status-indicator {
+        background-color: #F44336;
+    }
+
+    .red .status-text {
+        color: #C62828;
+    }
+
+    .status-text {
+        font-size: 0.95rem;
+        font-weight: 500;
+    }
+
+    .class-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.5rem;
+        padding: 1rem 0;
+    }
+
+    .class-card {
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        transition: transform 0.2s;
+        cursor: pointer;
+    }
+
+    .class-card:hover {
+        transform: translateY(-2px);
+    }
+
+    .class-image {
+        width: 100%;
+        height: 200px;
+        object-fit: cover;
+        object-position: center;
+    }
+
+    .class-info {
+        padding: 1.5rem;
+        background: white;
+    }
+
+    .class-info h3 {
+        margin-bottom: 0.75rem;
+        font-size: 1.1rem;
+        color: #333;
+    }
+
+    .class-grade {
+        color: #666;
+        font-size: 0.95rem;
+    }
+
+    .gpa-display {
+        background: white;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .gpa-value {
+        font-weight: bold;
+        margin-left: 0.5rem;
+    }
+
+    .green-text {
+        color: #4CAF50;
+    }
+
+    .yellow-text {
+        color: #F57F17;
+    }
+
+    .red-text {
+        color: #C62828;
+    }
+
+    @media (max-width: 1200px) {
+        .class-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    @media (max-width: 768px) {
+        .class-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* Bottom Sections Layout */
+    .bottom-sections {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2rem;
+        margin-top: 2rem;
+    }
+
+    /* Calendar Styles */
+    .calendar-section {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .calendar-event {
+        display: flex;
+        align-items: flex-start;
+        padding: 1rem 0;
+        border-bottom: 1px solid #eee;
+    }
+
+    .calendar-event:last-child {
+        border-bottom: none;
+    }
+
+    .event-date {
+        min-width: 60px;
+        font-weight: bold;
+        color: #1a73e8;
+    }
+
+    .event-details h4 {
+        margin: 0;
+        font-size: 0.95rem;
+    }
+
+    .event-details p {
+        margin: 0.25rem 0 0;
+        font-size: 0.9rem;
+        color: #666;
+    }
+
+    /* Todo List Styles */
+    .todo-section {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .todo-item {
+        display: flex;
+        align-items: center;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #eee;
+    }
+
+    .todo-item:last-child {
+        border-bottom: none;
+    }
+
+    .todo-item input[type="checkbox"] {
+        margin-right: 1rem;
+    }
+
+    .todo-item label {
+        flex: 1;
+        font-size: 0.95rem;
+    }
+
+    .due-date {
+        color: #666;
+        font-size: 0.9rem;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 1200px) {
+        .bottom-sections {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* Calendar Styles */
+    #calendar {
+        margin-bottom: 1.5rem;
+        background: white;
+        padding: 1rem;
+        border-radius: 8px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+
+    .fc-toolbar-title {
+        font-size: 1.1rem !important;
+    }
+
+    .fc-button {
+        background-color: #1a73e8 !important;
+        border-color: #1a73e8 !important;
+    }
+
+    .fc-event {
+        cursor: pointer;
+        padding: 2px 4px;
+    }
+
+    .fc-day-today {
+        background-color: rgba(26, 115, 232, 0.1) !important;
+    }
+</style>
+
+<link href='https://cdn.jsdelivr.net/npm/@fullcalendar/core/main.css' rel='stylesheet' />
+<link href='https://cdn.jsdelivr.net/npm/@fullcalendar/daygrid/main.css' rel='stylesheet' />
+<script src='https://cdn.jsdelivr.net/npm/@fullcalendar/core/main.js'></script>
+<script src='https://cdn.jsdelivr.net/npm/@fullcalendar/daygrid/main.js'></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var calendarEl = document.getElementById('calendar');
+    var calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,dayGridWeek'
+        },
+        events: [
+            // You'll need to pass these events from your backend
+            // Format: { title: 'Event', start: '2024-03-15', end: '2024-03-16' }
+            {% for event in upcoming_events %}
+            {
+                title: '{{ event.title }}',
+                start: '{{ event.date }}',
+                description: '{{ event.description }}'
+            }{% if not loop.last %},{% endif %}
+            {% endfor %}
+        ]
+    });
+    calendar.render();
+});
+</script>
+{% endblock %}

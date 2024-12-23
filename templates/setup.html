@@ -1,0 +1,318 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="setup-container">
+    <div class="setup-card">
+        <h1>Complete Your Setup</h1>
+        <p class="setup-description">Let's get your account ready to use all features of StudyHub</p>
+
+        <form id="setupForm" class="setup-form">
+            <!-- Progress Steps -->
+            <div class="setup-progress">
+                <div class="progress-step active" data-step="1">
+                    <div class="step-number">1</div>
+                    <div class="step-label">Google Drive</div>
+                </div>
+                <div class="progress-step" data-step="2">
+                    <div class="step-number">2</div>
+                    <div class="step-label">Profile</div>
+                </div>
+            </div>
+
+            <!-- Step 1: Google Drive Setup -->
+            <div class="setup-step active" id="step1">
+                <h2>Google Drive Setup</h2>
+                <div class="form-group">
+                    <label for="parentFolder">Google Drive Folder</label>
+                    <div class="folder-select">
+                        <button type="button" class="btn-folder" onclick="selectGoogleFolder()">
+                            <i class="fas fa-folder"></i> Select Folder
+                        </button>
+                        <span id="selectedFolder">No folder selected</span>
+                    </div>
+                    <small class="help-text">Choose where to store your documents</small>
+                </div>
+
+                <button type="button" class="btn-next" onclick="validateAndProceed(1)">Next</button>
+            </div>
+
+            <!-- Step 2: Profile Setup -->
+            <div class="setup-step" id="step2">
+                <h2>Profile Setup</h2>
+                <div class="form-group">
+                    <label for="profilePicture">Profile Picture (Optional)</label>
+                    <div class="profile-upload">
+                        <div class="profile-preview" id="profilePreview">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <input type="file" id="profilePicture" name="profilePicture" accept="image/*" hidden>
+                        <button type="button" class="btn-upload" onclick="document.getElementById('profilePicture').click()">
+                            Choose Photo
+                        </button>
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button type="button" class="btn-back" onclick="goToStep(1)">Back</button>
+                    <button type="submit" class="btn-finish">Complete Setup</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.setup-container {
+    max-width: 600px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+}
+
+.setup-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    padding: 2rem;
+}
+
+.setup-description {
+    color: #666;
+    margin-bottom: 2rem;
+}
+
+.setup-progress {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+    position: relative;
+}
+
+.progress-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    z-index: 1;
+}
+
+.step-number {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #e0e0e0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0.5rem;
+    color: #666;
+}
+
+.progress-step.active .step-number {
+    background: #4CAF50;
+    color: white;
+}
+
+.step-label {
+    font-size: 0.875rem;
+    color: #666;
+}
+
+.setup-step {
+    display: none;
+}
+
+.setup-step.active {
+    display: block;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+}
+
+.help-text {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.875rem;
+    color: #666;
+}
+
+.api-key-input {
+    position: relative;
+}
+
+.toggle-password {
+    position: absolute;
+    right: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #666;
+}
+
+.folder-select {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.btn-folder {
+    padding: 0.75rem 1rem;
+    background: #f5f5f5;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.profile-upload {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+
+.profile-preview {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: #f5f5f5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    color: #666;
+    overflow: hidden;
+}
+
+.profile-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.button-group {
+    display: flex;
+    gap: 1rem;
+    margin-top: 2rem;
+}
+
+.btn-next, .btn-back, .btn-finish {
+    padding: 0.75rem 1.5rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.btn-next, .btn-finish {
+    background: #4CAF50;
+    color: white;
+    border: none;
+}
+
+.btn-back {
+    background: #f5f5f5;
+    border: 1px solid #ddd;
+}
+</style>
+
+<script>
+function togglePassword(inputId) {
+    const input = document.getElementById(inputId);
+    const icon = input.nextElementSibling.querySelector('i');
+    
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.replace('fa-eye', 'fa-eye-slash');
+    } else {
+        input.type = 'password';
+        icon.classList.replace('fa-eye-slash', 'fa-eye');
+    }
+}
+
+function showApiKeyGuide() {
+    // Show a modal or tooltip with API key instructions
+    alert('Instructions to get Canvas API Key:\n1. Log into Canvas\n2. Go to Account Settings\n3. Click on "New Access Token"\n4. Copy the generated token');
+}
+
+function validateAndProceed(step) {
+    if (step === 1) {
+        // Add any Google Drive folder validation if needed
+        const folderSelected = document.getElementById('selectedFolder').textContent !== 'No folder selected';
+        if (!folderSelected) {
+            alert('Please select a Google Drive folder');
+            return;
+        }
+    }
+    
+    goToStep(step + 1);
+}
+
+function goToStep(step) {
+    // Update progress indicators
+    document.querySelectorAll('.progress-step').forEach(el => {
+        el.classList.remove('active');
+        if (parseInt(el.dataset.step) <= step) {
+            el.classList.add('active');
+        }
+    });
+    
+    // Show correct step
+    document.querySelectorAll('.setup-step').forEach(el => {
+        el.classList.remove('active');
+    });
+    document.getElementById(`step${step}`).classList.add('active');
+}
+
+document.getElementById('profilePicture').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const preview = document.getElementById('profilePreview');
+            preview.innerHTML = `<img src="${e.target.result}" alt="Profile Preview">`;
+        }
+        reader.readAsDataURL(file);
+    }
+});
+
+document.getElementById('setupForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData();
+    formData.append('canvasUrl', document.getElementById('canvasUrl').value);
+    formData.append('canvasApiKey', document.getElementById('canvasApiKey').value);
+    formData.append('profilePicture', document.getElementById('profilePicture').files[0]);
+    
+    try {
+        const response = await fetch('/api/complete-setup', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (response.ok) {
+            window.location.href = '/dashboard';
+        } else {
+            const data = await response.json();
+            alert(data.error || 'Setup failed. Please try again.');
+        }
+    } catch (error) {
+        console.error('Setup error:', error);
+        alert('An error occurred during setup. Please try again.');
+    }
+});
+</script>
+{% endblock %}

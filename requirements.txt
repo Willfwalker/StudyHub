@@ -1,0 +1,14 @@
+flask
+gunicorn
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib
+google-generativeai
+speech_recognition
+canvasapi
+python-dotenv
+pandas
+requests
+Pillow
+Flask-WTF
+Flask-Caching

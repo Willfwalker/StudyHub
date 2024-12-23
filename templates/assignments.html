@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .main-content {
+        padding: 40px !important;
+    }
+
+    .header {
+        display: flex !important;
+        align-items: center !important;
+        gap: 20px !important;
+        margin-bottom: 40px !important;
+        padding-left: 20px !important;
+    }
+
+    .header h1 {
+        font-size: 2.5em !important;
+        margin: 0 !important;
+    }
+
+    .filter-buttons {
+        display: flex !important;
+        gap: 10px !important;
+    }
+
+    .filter-button {
+        padding: 8px 16px !important;
+        border: 1px solid #e0e0e0 !important;
+        border-radius: 20px !important;
+        background: white !important;
+        color: black !important;
+        cursor: pointer !important;
+    }
+
+    .assignments-list {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 20px !important;
+    }
+
+    .assignment-card {
+        background: white !important;
+        border: 1px solid #e0e0e0 !important;
+        border-radius: 8px !important;
+        padding: 24px !important;
+        cursor: pointer !important;
+        text-decoration: none !important;
+        color: black !important;
+    }
+
+    .assignment-title {
+        font-size: 1.5em !important;
+        font-weight: 500 !important;
+        margin-bottom: 8px !important;
+    }
+
+    .assignment-course {
+        color: #666 !important;
+        margin-bottom: 16px !important;
+    }
+
+    .assignment-meta {
+        display: flex !important;
+        align-items: center !important;
+        gap: 24px !important;
+        color: #666 !important;
+    }
+
+    .meta-item {
+        display: flex !important;
+        align-items: center !important;
+        gap: 8px !important;
+    }
+
+    .status-badge {
+        background: #e8f1ff !important;
+        color: #1a73e8 !important;
+        padding: 4px 12px !important;
+        border-radius: 16px !important;
+        font-size: 0.9em !important;
+        float: right !important;
+    }
+
+    .points {
+        float: right !important;
+        font-size: 1.2em !important;
+        font-weight: 500 !important;
+    }
+
+    .document-options {
+        position: relative !important;
+        display: inline-block !important;
+    }
+
+    .start-button {
+        background: #1a73e8 !important;
+        color: white !important;
+        padding: 8px 16px !important;
+        border-radius: 4px !important;
+        border: none !important;
+        cursor: pointer !important;
+    }
+
+    .options-dropdown {
+        display: none !important;
+        position: absolute !important;
+        background: white !important;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1) !important;
+        border-radius: 4px !important;
+        min-width: 150px !important;
+        z-index: 1000 !important;
+        right: 0 !important;
+    }
+
+    .options-dropdown.show {
+        display: block !important;
+    }
+
+    .doc-option {
+        padding: 8px 16px !important;
+        cursor: pointer !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 8px !important;
+    }
+
+    .doc-option:hover {
+        background: #f5f5f5 !important;
+    }
+
+    .doc-icon {
+        width: 20px !important;
+        height: 20px !important;
+    }
+</style>
+
+<div class="header">
+    <h1>Assignments</h1>
+</div>
+
+<div class="assignments-list">
+    {% for assignment in assignments %}
+    <a href="{{ url_for('assignment_details', course_id=assignment.course_id, assignment_id=assignment.id) }}" class="assignment-card">
+        <span class="status-badge">Upcoming</span>
+        <span class="points">{{ assignment.points_possible }} points</span>
+        <div class="document-options" onclick="event.preventDefault();">
+            <button class="start-button" onclick="toggleOptions(event, this)">Start Assignment</button>
+            <div class="options-dropdown">
+                <div class="doc-option" onclick="createDocument(event, '{{ assignment.course_id }}', '{{ assignment.id }}', 'mla')">
+                    <img src="{{ url_for('static', filename='images/doc-icon.png') }}" alt="Doc" class="doc-icon">
+                    MLA Document
+                </div>
+                <div class="doc-option" onclick="createDocument(event, '{{ assignment.course_id }}', '{{ assignment.id }}', 'apa')">
+                    <img src="{{ url_for('static', filename='images/doc-icon.png') }}" alt="Doc" class="doc-icon">
+                    APA Document
+                </div>
+                <div class="doc-option" onclick="createDocument(event, '{{ assignment.course_id }}', '{{ assignment.id }}', 'sheets')">
+                    <img src="{{ url_for('static', filename='images/sheets-icon.png') }}" alt="Sheets" class="doc-icon">
+                    Spreadsheet
+                </div>
+                <div class="doc-option" onclick="createDocument(event, '{{ assignment.course_id }}', '{{ assignment.id }}', 'slides')">
+                    <img src="{{ url_for('static', filename='images/slides-icon.png') }}" alt="Slides" class="doc-icon">
+                    Presentation
+                </div>
+            </div>
+        </div>
+        <h2 class="assignment-title">{{ assignment.name }}</h2>
+        <div class="assignment-course">{{ assignment.course_name }}</div>
+        <div class="assignment-meta">
+            <div class="meta-item">
+                <span class="meta-icon">📅</span>
+                <span>Due {{ assignment.due_at|format_date }}</span>
+            </div>
+            <div class="meta-item">
+                <span class="meta-icon">⏰</span>
+                <span>{{ assignment.days_until_due }} days</span>
+            </div>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+
+<script>
+function toggleOptions(event, button) {
+    event.preventDefault();  // Prevent any default action
+    event.stopPropagation();  // Stop event from bubbling up
+    
+    // Close all other dropdowns first
+    document.querySelectorAll('.options-dropdown.show').forEach(dropdown => {
+        if (dropdown !== button.nextElementSibling) {
+            dropdown.classList.remove('show');
+        }
+    });
+    
+    // Toggle the clicked dropdown
+    const dropdown = button.nextElementSibling;
+    dropdown.classList.toggle('show');
+}
+
+function createDocument(event, courseId, assignmentId, format) {
+    event.preventDefault();  // Prevent any default action
+    event.stopPropagation();  // Stop event from bubbling up
+    
+    // Close the dropdown
+    document.querySelectorAll('.options-dropdown.show').forEach(dropdown => {
+        dropdown.classList.remove('show');
+    });
+
+    // Make API call to create document
+    fetch('/api/create-homework-doc', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            course_id: courseId,
+            assignment_id: assignmentId,
+            format: format
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.doc_info) {
+            window.open(data.doc_info.url, '_blank');
+        } else {
+            alert('Error creating document: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error creating document');
+    });
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', function(event) {
+    if (!event.target.closest('.document-options')) {
+        document.querySelectorAll('.options-dropdown.show').forEach(dropdown => {
+            dropdown.classList.remove('show');
+        });
+    }
+});
+</script>
+{% endblock %}

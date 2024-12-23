@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enter Video Topic</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <style>
+        .prompt-container {
+            padding: 40px !important;
+            max-width: 800px !important;
+            margin: 0 auto !important;
+            background: linear-gradient(45deg, #1a1a1a, #2c3e50) !important;
+            min-height: 100vh !important;
+        }
+
+        .prompt-form {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 20px !important;
+            margin-top: 30px !important;
+        }
+
+        .prompt-input {
+            padding: 15px !important;
+            border-radius: 8px !important;
+            border: 2px solid rgba(255, 255, 255, 0.2) !important;
+            background: rgba(255, 255, 255, 0.1) !important;
+            color: white !important;
+            font-size: 16px !important;
+        }
+
+        .submit-button {
+            padding: 15px !important;
+            border-radius: 8px !important;
+            border: 2px solid rgba(255, 255, 255, 0.2) !important;
+            background: rgba(255, 255, 255, 0.1) !important;
+            color: white !important;
+            cursor: pointer !important;
+            font-size: 16px !important;
+            transition: background 0.3s ease !important;
+        }
+
+        .submit-button:hover {
+            background: rgba(255, 255, 255, 0.2) !important;
+        }
+
+        .back-button {
+            display: inline-block !important;
+            padding: 10px 20px !important;
+            background: rgba(255, 255, 255, 0.1) !important;
+            color: white !important;
+            text-decoration: none !important;
+            border-radius: 5px !important;
+            margin-bottom: 20px !important;
+            border: 2px solid rgba(255, 255, 255, 0.2) !important;
+        }
+
+        .back-button:hover {
+            background: rgba(255, 255, 255, 0.2) !important;
+        }
+
+        h1 {
+            color: white !important;
+            margin-bottom: 30px !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="prompt-container">
+        <a href="{{ url_for('dashboard') }}" class="back-button">← Back to Dashboard</a>
+        <h1>Enter Your Topic</h1>
+        <form class="prompt-form" action="{{ url_for('recommend_videos') }}" method="GET">
+            <input type="text" 
+                   name="prompt" 
+                   class="prompt-input" 
+                   placeholder="Enter your topic or question for video recommendations"
+                   required>
+            <button type="submit" class="submit-button">Search Videos</button>
+        </form>
+    </div>
+</body>
+</html>

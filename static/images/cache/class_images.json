@@ -1,0 +1,115 @@
+{
+    "AAD": {
+      "department": "Arts Administration",
+      "pexels_image": "https://images.pexels.com/photos/3182749/pexels-photo-3182749.jpeg"
+    },
+    "ACC": {
+      "department": "Accounting",
+      "pexels_image": "https://images.pexels.com/photos/669615/pexels-photo-669615.jpeg"
+    },
+    "ART": {
+      "department": "Art",
+      "pexels_image": "https://images.pexels.com/photos/102127/pexels-photo-102127.jpeg"
+    },
+    "BIB": {
+      "department": "Biblical Studies",
+      "pexels_image": "https://images.pexels.com/photos/272337/pexels-photo-272337.jpeg"
+    },
+    "BIO": {
+      "department": "Biology",
+      "pexels_image": "https://images.pexels.com/photos/2280547/pexels-photo-2280547.jpeg"
+    },
+    "BU": {
+      "department": "Belhaven Basics",
+      "pexels_image": "https://images.pexels.com/photos/10030875/pexels-photo-10030875.jpeg"
+    },
+    "BUS": {
+      "department": "Business",
+      "pexels_image": "https://images.pexels.com/photos/3184292/pexels-photo-3184292.jpeg"
+    },
+    "CHE": {
+      "department": "Chemistry",
+      "pexels_image": "https://images.pexels.com/photos/2280549/pexels-photo-2280549.jpeg"
+    },
+    "CIS": {
+      "department": "Computer Information Systems",
+      "pexels_image": "https://images.pexels.com/photos/1181675/pexels-photo-1181675.jpeg"
+    },
+    "CJU": {
+      "department": "Criminal Justice",
+      "pexels_image": "https://images.pexels.com/photos/6077189/pexels-photo-6077189.jpeg"
+    },
+    "COM": {
+      "department": "Communication",
+      "pexels_image": "https://images.pexels.com/photos/8348468/pexels-photo-8348468.jpeg"
+    },
+    "CSC": {
+      "department": "Computer Science",
+      "pexels_image": "https://images.pexels.com/photos/2653362/pexels-photo-2653362.jpeg"
+    },
+    "CYS" :{
+      "department": "Cybersecruity",
+      "pexels_image": "https://images.pexels.com/photos/577585/pexels-photo-577585.jpeg"
+    },
+    "DAN": {
+      "department": "Dance",
+      "pexels_image": "https://images.pexels.com/photos/2188012/pexels-photo-2188012.jpeg"
+    },
+    "ECO": {
+      "department": "Economics",
+      "pexels_image": "https://images.pexels.com/photos/159888/pexels-photo-159888.jpeg"
+    },
+    "EDU": {
+      "department": "Education",
+      "pexels_image": "https://images.pexels.com/photos/159844/pexels-photo-159844.jpeg"
+    },
+    "ENG": {
+      "department": "English",
+      "pexels_image": "https://images.pexels.com/photos/261763/pexels-photo-261763.jpeg "
+    },
+    "HIS": {
+      "department": "History",
+      "pexels_image": "https://images.pexels.com/photos/67442/pexels-photo-67442.jpeg"
+    },
+    "MAT": {
+      "department": "Mathematics",
+      "pexels_image": "https://images.pexels.com/photos/3729557/pexels-photo-3729557.jpeg"
+    },
+    "MUS": {
+      "department": "Music",
+      "pexels_image": "https://images.pexels.com/photos/164821/pexels-photo-164821.jpeg"
+    },
+    "NUR": {
+      "department": "Nursing",
+      "pexels_image": "https://images.pexels.com/photos/1170979/pexels-photo-1170979.jpeg"
+    },
+    "PHI": {
+      "department": "Philosophy",
+      "pexels_image": "https://images.pexels.com/photos/26887007/pexels-photo-26887007.jpeg"
+    },
+    "PHY": {
+      "department": "Physics",
+      "pexels_image": "https://images.pexels.com/photos/256302/pexels-photo-256302.jpeg"
+    },
+    "PSC": {
+      "department": "Political Science",
+      "pexels_image": "https://images.pexels.com/photos/12504958/pexels-photo-12504958.jpeg"
+    },
+    "PSY": {
+      "department": "Psychology",
+      "pexels_image": "https://images.pexels.com/photos/4101143/pexels-photo-4101143.jpeg"
+    },
+    "SOC": {
+      "department": "Sociology",
+      "pexels_image": "https://images.pexels.com/photos/29817276/pexels-photo-29817276.jpeg"
+    },
+    "SWK": {
+      "department": "Social Work",
+      "pexels_image": "https://images.pexels.com/photos/3184405/pexels-photo-3184405.jpeg"
+    },
+    "THE": {
+      "department": "Theatre",
+      "pexels_image": "https://images.pexels.com/photos/713149/pexels-photo-713149.jpeg"
+    }
+  }
+  
