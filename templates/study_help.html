@@ -118,6 +118,22 @@
     .modal-close:hover {
         background-color: #d0d0d0;
     }
+
+    .loading-spinner {
+        display: inline-block;
+        width: 40px;
+        height: 40px;
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #2196f3;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 20px auto;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
 </style>
 
 <div class="study-help-container">
@@ -181,7 +197,7 @@
         </a>
 
         <!-- View Past Notes -->
-        <a href="/past-notes" class="widget-card">
+        <a href="#" class="widget-card" id="viewPastNotesCard">
             <i class="fas fa-history widget-icon"></i>
             <h3 class="widget-title">View Past Notes</h3>
             <p class="widget-description">Access and review your previously saved notes and study materials</p>
@@ -192,10 +208,35 @@
 <!-- Add this modal HTML before the closing </div> of study-help-container -->
 <div id="classSelectModal" class="modal" style="display: none;">
     <div class="modal-content">
+        <h2>Create New Notes</h2>
+        <form id="newNotesForm" style="text-align: left;">
+            <div style="margin-bottom: 16px;">
+                <label for="notesName">Notes Name:</label>
+                <input type="text" id="notesName" name="notesName" required 
+                    style="width: 100%; padding: 8px; margin-top: 4px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+            <div style="margin-bottom: 16px;">
+                <label for="classSelect">Select Class:</label>
+                <select id="classSelect" name="classSelect" required 
+                    style="width: 100%; padding: 8px; margin-top: 4px; border: 1px solid #ddd; border-radius: 4px;">
+                    <option value="">Choose a class...</option>
+                </select>
+            </div>
+            <div style="text-align: center; margin-top: 20px;">
+                <button type="submit" class="class-button" style="margin-right: 10px;">Create Notes</button>
+                <button type="button" class="modal-close">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Add this modal HTML before the closing </div> of study-help-container -->
+<div id="viewNotesClassModal" class="modal" style="display: none;">
+    <div class="modal-content">
         <h2>Select Class</h2>
-        <p>What class do you want to take notes for?</p>
-        <div id="classButtonsContainer" class="class-grid">
-            <!-- Class buttons will be inserted here dynamically -->
+        <p>Which class's notes would you like to view?</p>
+        <div id="viewNotesClassButtonsContainer" class="class-grid">
+            <div class="loading-spinner"></div>
         </div>
         <button class="modal-close">Cancel</button>
     </div>
@@ -244,8 +285,78 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch('/api/canvas/classes')
             .then(response => response.json())
             .then(classes => {
-                // Clear existing buttons
-                classButtonsContainer.innerHTML = '';
+                const classSelect = document.getElementById('classSelect');
+                classSelect.innerHTML = '<option value="">Choose a class...</option>';
+                
+                // Create a Set to store unique class names
+                const uniqueClasses = new Map();
+                
+                // Get unique classes
+                classes.forEach(course => {
+                    if (!uniqueClasses.has(course.name)) {
+                        uniqueClasses.set(course.name, course);
+                    }
+                });
+                
+                // Add options to select
+                uniqueClasses.forEach(course => {
+                    const option = document.createElement('option');
+                    option.value = course.id;
+                    option.textContent = course.name;
+                    classSelect.appendChild(option);
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching classes:', error);
+                document.getElementById('classSelect').innerHTML = 
+                    '<option value="">Error loading classes</option>';
+            });
+    }
+
+    // Add form submission handler
+    document.getElementById('newNotesForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const notesName = document.getElementById('notesName').value;
+        const classSelect = document.getElementById('classSelect');
+        const courseId = classSelect.value;
+        const courseName = classSelect.options[classSelect.selectedIndex].text;
+
+        window.location.href = `/take-notes?course_id=${courseId}&course_name=${encodeURIComponent(courseName)}&notes_name=${encodeURIComponent(notesName)}`;
+    });
+
+    const viewNotesModal = document.getElementById('viewNotesClassModal');
+    const viewPastNotesCard = document.getElementById('viewPastNotesCard');
+    const viewNotesClassButtonsContainer = document.getElementById('viewNotesClassButtonsContainer');
+
+    // Show modal when clicking View Past Notes
+    viewPastNotesCard.addEventListener('click', function(e) {
+        e.preventDefault();
+        fetchClassesForNotes();
+        viewNotesModal.style.display = 'block';
+    });
+
+    // Close view notes modal when clicking Cancel
+    viewNotesModal.querySelector('.modal-close').addEventListener('click', function() {
+        viewNotesModal.style.display = 'none';
+    });
+
+    // Close view notes modal when clicking outside
+    window.addEventListener('click', function(e) {
+        if (e.target === viewNotesModal) {
+            viewNotesModal.style.display = 'none';
+        }
+    });
+
+    // Fetch classes for viewing notes
+    function fetchClassesForNotes() {
+        // Show loading spinner
+        viewNotesClassButtonsContainer.innerHTML = '<div class="loading-spinner"></div>';
+        
+        fetch('/api/canvas/classes')
+            .then(response => response.json())
+            .then(classes => {
+                // Clear loading spinner
+                viewNotesClassButtonsContainer.innerHTML = '';
                 
                 // Create a Set to store unique class names
                 const uniqueClasses = new Map();
@@ -263,14 +374,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     button.className = 'class-button';
                     button.textContent = course.name;
                     button.addEventListener('click', () => {
-                        window.location.href = `/take-notes?course_id=${course.id}&course_name=${encodeURIComponent(course.name)}`;
+                        window.location.href = `/past-notes?course_id=${course.id}&course_name=${encodeURIComponent(course.name)}`;
                     });
-                    classButtonsContainer.appendChild(button);
+                    viewNotesClassButtonsContainer.appendChild(button);
                 });
             })
             .catch(error => {
                 console.error('Error fetching classes:', error);
-                classButtonsContainer.innerHTML = '<p>Error loading classes. Please try again.</p>';
+                viewNotesClassButtonsContainer.innerHTML = '<p>Error loading classes. Please try again.</p>';
             });
     }
 });

@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .quiz-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .quiz-header {
+        text-align: center;
+        margin-bottom: 40px;
+    }
+
+    .quiz-header h1 {
+        font-size: 2em;
+        color: #333;
+        margin-bottom: 10px;
+    }
+
+    .quiz-header p {
+        color: #666;
+        font-size: 1.1em;
+    }
+
+    .class-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 20px;
+        margin-top: 30px;
+    }
+
+    .class-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        transition: transform 0.2s, box-shadow 0.2s;
+        cursor: pointer;
+        border: 1px solid rgba(0,0,0,0.1);
+        position: relative;
+        min-height: 100px;
+    }
+
+    .class-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    .class-name {
+        font-size: 1.2em;
+        font-weight: 500;
+        margin-bottom: 10px;
+        color: #333;
+    }
+
+    .class-info {
+        color: #666;
+        font-size: 0.9em;
+    }
+
+    .no-classes {
+        text-align: center;
+        padding: 40px;
+        color: #666;
+    }
+
+    .loading {
+        text-align: center;
+        padding: 40px;
+        color: #666;
+    }
+
+    .loading i {
+        font-size: 2em;
+        margin-bottom: 15px;
+    }
+
+    .loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.9);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.9em;
+        color: #666;
+    }
+
+    .error-message {
+        color: #dc3545;
+        margin-top: 10px;
+        text-align: center;
+    }
+</style>
+
+<div class="quiz-container">
+    <div class="quiz-header">
+        <h1>Create a Quiz</h1>
+        <p>Select a class to generate a practice quiz based on your course materials</p>
+    </div>
+
+    <div id="classContainer" class="class-grid">
+        <div class="loading">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Loading your classes...</p>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const classContainer = document.getElementById('classContainer');
+
+    // Fetch classes from the API
+    fetch('/api/canvas/classes')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(classes => {
+            classContainer.innerHTML = ''; // Clear loading message
+            
+            if (!classes || classes.length === 0) {
+                classContainer.innerHTML = `
+                    <div class="no-classes">
+                        <i class="fas fa-book"></i>
+                        <p>No classes found. Please make sure you're enrolled in courses.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Create a card for each class
+            classes.forEach(course => {
+                if (!course.id) {
+                    console.error('Course missing ID:', course);
+                    return;
+                }
+
+                const classCard = document.createElement('div');
+                classCard.className = 'class-card';
+                classCard.innerHTML = `
+                    <div class="class-name">${course.name}</div>
+                    <div class="class-info">
+                        <i class="fas fa-book"></i> Click to create a quiz
+                    </div>
+                `;
+
+                // Add click handler for the card
+                classCard.addEventListener('click', () => {
+                    try {
+                        console.log(`Attempting to create quiz for course ${course.id}`);
+                        // Show loading state
+                        const loadingOverlay = document.createElement('div');
+                        loadingOverlay.className = 'loading-overlay';
+                        loadingOverlay.innerHTML = `
+                            <i class="fas fa-spinner fa-spin"></i>
+                            Creating quiz...
+                        `;
+                        classCard.appendChild(loadingOverlay);
+                        classCard.style.opacity = '0.7';
+                        
+                        // Navigate to quiz creation with the correct course ID
+                        window.location.href = `/create-quiz/${course.id}`;
+                    } catch (err) {
+                        console.error('Error handling click:', err);
+                        alert('Error creating quiz. Please try again.');
+                        classCard.style.opacity = '1';
+                        const loadingOverlay = classCard.querySelector('.loading-overlay');
+                        if (loadingOverlay) {
+                            loadingOverlay.remove();
+                        }
+                    }
+                });
+
+                classContainer.appendChild(classCard);
+            });
+        })
+        .catch(error => {
+            console.error('Error fetching classes:', error);
+            classContainer.innerHTML = `
+                <div class="no-classes">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <p>Error loading classes: ${error.message}</p>
+                </div>
+            `;
+        });
+});
+</script>
+{% endblock %}

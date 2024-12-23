@@ -522,12 +522,34 @@
                     // Remove loading indicator
                     chatMessages.removeChild(loadingDiv);
 
-                    // Add AI response
+                    // Add AI response with typing animation
                     if (data.response) {
                         const aiMessage = document.createElement('div');
                         aiMessage.style.margin = '8px 0';
-                        aiMessage.innerHTML = `<span style="background: #000; color: white; padding: 8px 12px; border-radius: 15px; display: inline-block;">${data.response}</span>`;
+                        const messageSpan = document.createElement('span');
+                        messageSpan.style.background = '#000';
+                        messageSpan.style.color = 'white';
+                        messageSpan.style.padding = '8px 12px';
+                        messageSpan.style.borderRadius = '15px';
+                        messageSpan.style.display = 'inline-block';
+                        messageSpan.textContent = ''; // Ensure it starts empty
+                        aiMessage.appendChild(messageSpan);
                         chatMessages.appendChild(aiMessage);
+
+                        // Type out the message
+                        const text = data.response;
+                        let index = 0;
+                        const typeInterval = setInterval(() => {
+                            if (index < text.length) {
+                                messageSpan.textContent += text.charAt(index);
+                                index++;
+                                // Auto scroll while typing
+                                chatMessages.scrollTop = chatMessages.scrollHeight;
+                            } else {
+                                clearInterval(typeInterval);
+                            }
+                        }, 10); // Made typing speed slower for visibility
+
                     } else {
                         throw new Error(data.error || 'Failed to get response');
                     }

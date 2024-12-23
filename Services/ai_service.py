@@ -257,6 +257,83 @@ class AIService:
         except Exception as e:
             print(f"Error creating video search prompt: {e}")
             return None
+    
+    def generate_quiz(self, text):
+        """
+        Generate a quiz with multiple choice and written response questions from input text.
+        
+        Args:
+            text (str): The text content to generate questions from
+            
+        Returns:
+            dict: Dictionary containing multiple choice and written response questions
+        """
+        try:
+            if not text or not isinstance(text, str):
+                print("Invalid input text")
+                return None
+                
+            # Clean input text
+            text = text.strip()
+            
+            # Prompt for multiple choice questions
+            mc_prompt = f"""Given this text:
+            {text}
+
+            Create 6 multiple choice questions to test understanding of the key concepts.
+            For each question:
+            - Include 4 answer choices labeled A, B, C, D
+            - Do not mark the correct answer
+            - Make questions progressively more challenging
+            - Focus on important concepts, not minor details
+            
+            Format each question as:
+            Q: [question text]
+            A) [option]
+            B) [option]
+            C) [option] 
+            D) [option]
+            """
+
+            # Prompt for written response questions
+            wr_prompt = f"""Given this text:
+            {text}
+
+            Create 4 written response questions that:
+            - Test deeper understanding and critical thinking
+            - Require explanation or analysis
+            - Cannot be answered with just memorized facts
+            - Build on core concepts from the text
+            
+            Format as:
+            Q1: [question]
+            Q2: [question]
+            etc."""
+
+            try:
+                # Generate multiple choice questions
+                mc_response = self.model.generate_content(mc_prompt)
+                mc_questions = mc_response.text.strip()
+
+                # Generate written response questions  
+                wr_response = self.model.generate_content(wr_prompt)
+                wr_questions = wr_response.text.strip()
+
+                quiz = {
+                    "multiple_choice": mc_questions,
+                    "written_response": wr_questions
+                }
+
+                return quiz
+
+            except AttributeError as e:
+                print(f"Error accessing response attributes: {e}")
+                return None
+
+        except Exception as e:
+            print(f"Error generating quiz: {e}")
+            return None
+
 
 if __name__ == "__main__":
     # Create an instance of AIService

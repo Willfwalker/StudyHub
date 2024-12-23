@@ -7,8 +7,10 @@ google-generativeai
 speech_recognition
 canvasapi
 python-dotenv
-pandas
-requests
+flask-wtf
+flask-caching
+flask-mail
 Pillow
+requestsPillow
 Flask-WTF
 Flask-Caching

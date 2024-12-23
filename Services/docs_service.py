@@ -870,3 +870,32 @@ class DocsService:
         except Exception as e:
             print(f"Error creating notes document: {e}")
             return None
+
+    def get_folder_documents_content(self, folder_id):
+        """Get the content of all documents in a folder"""
+        try:
+            # List all files in the folder
+            results = self.drive_service.files().list(
+                q=f"'{folder_id}' in parents and mimeType='application/vnd.google-apps.document'",
+                fields="files(id, name)"
+            ).execute()
+            
+            files = results.get('files', [])
+            
+            # Get content from each document
+            contents = []
+            for file in files:
+                doc = self.docs_service.documents().get(documentId=file['id']).execute()
+                content = ''
+                for element in doc.get('body', {}).get('content', []):
+                    if 'paragraph' in element:
+                        for para_element in element['paragraph']['elements']:
+                            if 'textRun' in para_element:
+                                content += para_element['textRun'].get('content', '')
+                contents.append(content)
+            
+            return contents
+
+        except Exception as e:
+            print(f"Error getting folder documents: {str(e)}")
+            return None

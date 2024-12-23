@@ -1417,8 +1417,105 @@ def create_notes(course_id):
     try:
         user_id = session.get('user_id')
         if not user_id:
+            return jsonify({'error': 'Not logged in'}), 401
+
+        canvas_service = CanvasService(user_id)
+        docs_service = DocsService(user_id)
+        
+        # Get course details
+        course = next((c for c in canvas_service.get_classes() if c['id'] == course_id), None)
+        if not course:
+            return jsonify({'error': 'Course not found'}), 404
+
+        # Get the Notes folder ID for this course from Firebase
+        folders_ref = db.reference(f'users/{user_id}/folders')
+        folders = folders_ref.get()
+        
+        # Find the correct folder by matching course name
+        folder_key = None
+        for key, folder_data in folders.items():
+            if folder_data.get('name') == course['name']:
+                folder_key = key
+                break
+                
+        if not folder_key or 'notes_folder_id' not in folders[folder_key]:
+            return jsonify({'error': 'Notes folder not found'}), 404
+
+        notes_folder_id = folders[folder_key]['notes_folder_id']
+
+        # Create the notes document in the Notes subfolder
+        doc_name = f"{course['name']} - Notes {datetime.now().strftime('%m/%d/%Y')}"
+        doc_info = docs_service.create_notes_doc(doc_name, notes_folder_id)
+        
+        if doc_info and doc_info.get('url'):
+            return jsonify({'url': doc_info['url']})
+        else:
+            return jsonify({'error': 'Failed to create notes document'}), 500
+
+    except Exception as e:
+        print(f"Error creating notes: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/past-notes')
+@login_required
+def past_notes():
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
             return redirect(url_for('login'))
 
+        course_id = request.args.get('course_id')
+        course_name = request.args.get('course_name')
+
+        if not course_id or not course_name:
+            return "Missing course information", 400
+
+        # Get the Notes folder ID for this course from Firebase
+        folders_ref = db.reference(f'users/{user_id}/folders')
+        folders = folders_ref.get()
+        
+        if not folders:
+            return "No folders found", 404
+
+        # Find the correct folder by matching course name
+        folder_url = None
+        for folder_data in folders.values():
+            if folder_data.get('name') == course_name:
+                notes_folder_id = folder_data.get('notes_folder_id')
+                if notes_folder_id:
+                    folder_url = f"https://drive.google.com/drive/folders/{notes_folder_id}"
+                break
+
+        if not folder_url:
+            return "Notes folder not found", 404
+
+        # Return a script that opens the URL in a new tab
+        return f"""
+        <script>
+            window.open('{folder_url}', '_blank');
+            window.history.back();
+        </script>
+        """
+
+    except Exception as e:
+        print(f"Error accessing past notes: {str(e)}")
+        return str(e), 500
+
+@app.route('/quiz-maker')
+@login_required
+def quiz_maker():
+    return render_template('quiz_maker.html')
+
+@app.route('/create-quiz/<int:course_id>')
+@login_required
+def create_quiz_for_course(course_id):
+    print(f"Received request for course ID: {course_id}")  # Debug print
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            return redirect(url_for('login'))
+
+        # Get course info
         canvas_service = CanvasService(user_id)
         docs_service = DocsService(user_id)
         
@@ -1427,23 +1524,53 @@ def create_notes(course_id):
         if not course:
             return "Course not found", 404
 
-        # Get the Notes folder ID for this course
-        folder_id = docs_service._get_folder_id(course['name'])
-        if not folder_id:
-            return "Course folder not found", 404
-
-        # Create the notes document
-        doc_name = f"{course['name']} - Notes {datetime.now().strftime('%m/%d/%Y')}"
-        doc_info = docs_service.create_notes_doc(doc_name, folder_id)
+        # Get the Notes folder ID from Firebase
+        folders_ref = db.reference(f'users/{user_id}/folders')
+        folders = folders_ref.get()
         
-        if doc_info and doc_info.get('url'):
-            return redirect(doc_info['url'])
-        else:
-            return "Failed to create notes document", 500
+        notes_folder_id = None
+        for folder_data in folders.values():
+            if folder_data.get('name') == course['name']:
+                notes_folder_id = folder_data.get('notes_folder_id')
+                break
+
+        if not notes_folder_id:
+            return "Notes folder not found", 404
+
+        # Get all notes content from the folder
+        notes_content = docs_service.get_folder_documents_content(notes_folder_id)
+        
+        if not notes_content:
+            return render_template('quiz_maker.html', error="No notes found for this course")
+
+        # Combine all notes content
+        combined_notes = "\n\n".join(notes_content)
+
+        # Generate quiz using AI service
+        ai_service = AIService()
+        quiz = ai_service.generate_quiz(combined_notes)
+
+        if not quiz:
+            return render_template('quiz_maker.html', error="Failed to generate quiz")
+
+        # Clean up the quiz content for proper JSON serialization
+        quiz['multiple_choice'] = quiz['multiple_choice'].strip()
+        quiz['written_response'] = quiz['written_response'].strip()
+
+        return render_template('quiz_display.html', 
+                             course=course,
+                             quiz=quiz)
 
     except Exception as e:
-        print(f"Error creating notes: {str(e)}")
+        print(f"Error creating quiz: {str(e)}")
         return str(e), 500
+
+@app.template_filter('nl2br')
+def nl2br(value):
+    """Convert newlines to HTML line breaks"""
+    if not value:
+        return value
+    return value.replace('\n', '<br>')
 
 if __name__ == '__main__':
     app.debug = True  

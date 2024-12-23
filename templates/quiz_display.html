@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .quiz-section {
+        margin-bottom: 30px;
+        padding: 20px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .question {
+        margin-bottom: 20px;
+        padding: 15px;
+        border-left: 4px solid #007bff;
+        background: #f8f9fa;
+    }
+
+    .options {
+        margin-left: 20px;
+    }
+
+    .written-question {
+        margin-bottom: 20px;
+    }
+
+    textarea {
+        width: 100%;
+        min-height: 100px;
+        margin-top: 10px;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+
+    .submit-btn {
+        margin-top: 20px;
+        padding: 10px 20px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .submit-btn:hover {
+        background-color: #0056b3;
+    }
+</style>
+
+<div class="container mt-4">
+    <h1>Quiz for {{ course.name }}</h1>
+
+    <div class="quiz-section">
+        <h2>Multiple Choice Questions</h2>
+        <div id="multipleChoice">
+            {{ quiz.multiple_choice | safe | nl2br }}
+        </div>
+    </div>
+
+    <div class="quiz-section">
+        <h2>Written Response Questions</h2>
+        <div id="writtenResponse">
+            {{ quiz.written_response | safe | nl2br }}
+        </div>
+    </div>
+
+    <button class="submit-btn" onclick="window.print()">
+        Print Quiz
+    </button>
+</div>
+
+<script>
+    // Format the quiz content for better display
+    document.addEventListener('DOMContentLoaded', function() {
+        // Format multiple choice questions
+        const mcContent = document.getElementById('multipleChoice');
+        mcContent.innerHTML = mcContent.innerHTML
+            .replace(/Q:/g, '<div class="question"><strong>Q:</strong>')
+            .replace(/Correct:/g, '</div><div><strong>Correct:</strong>')
+            .replace(/([A-D]\))/g, '<div class="options">$1')
+            .replace(/\n/g, '</div>\n');
+
+        // Format written response questions
+        const wrContent = document.getElementById('writtenResponse');
+        wrContent.innerHTML = wrContent.innerHTML
+            .replace(/Q\d+:/g, '<div class="written-question"><strong>$&</strong>')
+            .replace(/\n/g, '</div>\n');
+    });
+</script>
+{% endblock %} 

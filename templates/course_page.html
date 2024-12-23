@@ -9,7 +9,12 @@
 <!-- Course Header Section -->
 <div class="course-header">
     <h2>{{ course.name }}</h2>
-    <a href="{{ url_for('create_notes', course_id=course.id) }}" class="create-notes-btn" style="float: right; padding: 10px 20px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px; font-weight: 500; transition: background-color 0.2s; margin-top: -40px;">Take Notes</a>
+    <button onclick="createNotes({{ course.id }})" class="create-notes-btn" style="float: right; padding: 15px 30px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px; font-weight: 500; transition: background-color 0.2s; margin-top: -40px; border: none; cursor: pointer; font-size: 16px;">
+        <span class="button-text">Take Notes</span>
+        <span class="loading-spinner" style="display: none;">
+            Creating Doc...
+        </span>
+    </button>
 </div>
 
 <div class="past-assignments">
@@ -111,9 +116,54 @@
 .grade-yellow {
     color: #ffc107;
 }
+
+.create-notes-btn:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+.loading-spinner {
+    display: inline-block;
+}
 </style>
 
 <script type="module">
     // Your Firebase configuration and script code here
+</script>
+
+<script>
+async function createNotes(courseId) {
+    const button = document.querySelector('.create-notes-btn');
+    const buttonText = button.querySelector('.button-text');
+    const loadingSpinner = button.querySelector('.loading-spinner');
+    
+    // Disable button and show loading state
+    button.disabled = true;
+    buttonText.style.display = 'none';
+    loadingSpinner.style.display = 'inline';
+    
+    try {
+        const response = await fetch(`/create-notes/${courseId}`);
+        if (response.ok) {
+            const data = await response.json();
+            if (data.url) {
+                // Open the document in a new tab
+                window.open(data.url, '_blank');
+            } else {
+                alert('Error creating document');
+            }
+        } else {
+            throw new Error('Failed to create document');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error creating document');
+    } finally {
+        // Reset button state
+        button.disabled = false;
+        buttonText.style.display = 'inline';
+        loadingSpinner.style.display = 'none';
+    }
+}
 </script>
 {% endblock %}
