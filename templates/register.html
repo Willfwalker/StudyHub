@@ -21,6 +21,42 @@
             from { opacity: 0; }
             to { opacity: 1; }
         }
+
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            background-color: white;
+            appearance: none; /* Removes default browser styling */
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 16px;
+            cursor: pointer;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        select:hover {
+            border-color: #999;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+        }
+
+        select option {
+            padding: 12px;
+        }
+
+        /* Style for the placeholder option */
+        select option[value=""] {
+            color: #666;
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
@@ -64,9 +100,17 @@
 
                 <div class="form-group">
                     <label for="canvasUrl">Canvas URL</label>
-                    <input type="url" id="canvasUrl" name="canvasUrl" 
-                           placeholder="https://youruniversity.instructure.com" required>
-                    <small class="help-text">Enter your institution's Canvas URL</small>
+                    <select id="canvasUrl" name="canvasUrl" required>
+                        <option value="">Choose your school</option>
+                        <option value="https://belhaven.instructure.com/">Belhaven University</option>
+                        <option value="custom">Custom School</option>
+                    </select>
+                    <div id="customUrlInput" style="display: none; margin-top: 10px;">
+                        <input type="url" id="customCanvasUrl" name="customCanvasUrl" 
+                               placeholder="https://your-school.instructure.com"
+                               pattern="https?://.+\.instructure\.com/?.*">
+                        <small class="help-text">Enter your institution's Canvas URL</small>
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -113,7 +157,10 @@
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             const canvas_api_key = document.getElementById('canvas_api_key').value;
-            const canvasUrl = document.getElementById('canvasUrl').value;
+            const canvasUrlSelect = document.getElementById('canvasUrl');
+            const canvasUrl = canvasUrlSelect.value === 'custom' 
+                ? document.getElementById('customCanvasUrl').value 
+                : canvasUrlSelect.value;
             const googleFolderLink = document.getElementById('googleFolderLink').value;
             const errorDiv = document.getElementById('error-message') || document.createElement('div');
 
@@ -208,6 +255,22 @@
             const passwordInput = document.getElementById('password');
             const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
             passwordInput.setAttribute('type', type);
+        });
+
+        // Add custom URL handling
+        document.getElementById('canvasUrl').addEventListener('change', function() {
+            const customUrlDiv = document.getElementById('customUrlInput');
+            const customUrlInput = document.getElementById('customCanvasUrl');
+            
+            if (this.value === 'custom') {
+                customUrlDiv.style.display = 'block';
+                customUrlInput.required = true;
+                this.removeAttribute('required');
+            } else {
+                customUrlDiv.style.display = 'none';
+                customUrlInput.required = false;
+                this.setAttribute('required', 'required');
+            }
         });
     </script>
 </body>
