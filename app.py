@@ -200,9 +200,14 @@ def base():
         print(f"Error in base route: {str(e)}")
         return redirect(url_for('login'))
 
+def make_cache_key(*args, **kwargs):
+    """Create a cache key based on the user ID"""
+    return f'dashboard-{session.get("user_id", "")}'
+
 @app.route('/')
 @app.route('/dashboard')
 @login_required
+@cache.cached(timeout=3600, key_prefix=make_cache_key)  # Cache for 1 hour with user-specific keys
 def dashboard():
     try:
         user_id = session.get('user_id')
@@ -1244,47 +1249,41 @@ def get_calendar_events():
 
         canvas_service = CanvasService(user_id)
         
-        # Get all assignments
-        assignments = canvas_service.get_all_assignments()
-        
-        # Get requested month/year from query parameters
-        requested_date = request.args.get('date')
-        if requested_date:
-            target_date = datetime.strptime(requested_date, '%Y-%m')
-        else:
-            target_date = datetime.now()
-            
-        start_of_month = datetime(target_date.year, target_date.month, 1)
-        if target_date.month == 12:
-            end_of_month = datetime(target_date.year + 1, 1, 1)
-        else:
-            end_of_month = datetime(target_date.year, target_date.month + 1, 1)
-        
-        # Filter and format assignments for the requested month
-        events = []
-        for assignment in assignments:
-            if assignment.get('due_at'):
-                try:
-                    due_date = datetime.strptime(assignment['due_at'], '%Y-%m-%dT%H:%M:%SZ')
-                    
-                    # Only include assignments due this month
-                    if start_of_month <= due_date < end_of_month:
+        # Add error handling for Canvas service initialization
+        if not canvas_service.api_key:
+            return jsonify({'error': 'Canvas API key not found'}), 401
+
+        try:
+            # Get all assignments
+            assignments = canvas_service.get_all_assignments()
+            if assignments is None:
+                return jsonify({'error': 'Failed to fetch assignments'}), 500
+                
+            # Convert assignments to calendar events
+            events = []
+            for assignment in assignments:
+                if assignment.get('due_at'):
+                    try:
                         events.append({
-                            'title': f"{assignment['name']}",
-                            'date': assignment['due_at'],
-                            'course': assignment.get('course_name', ''),
+                            'title': assignment['name'],
+                            'date': assignment['due_at'],  # Keep ISO format for proper parsing
+                            'course': assignment.get('course_name', 'Unknown Course'),
                             'type': 'assignment',
                             'id': assignment.get('id'),
                             'course_id': assignment.get('course_id')
                         })
-                except ValueError as e:
-                    print(f"Error parsing date for assignment {assignment.get('name')}: {e}")
-                    continue
-        
-        return jsonify(events)
-        
+                    except Exception as e:
+                        print(f"Error processing assignment {assignment.get('name')}: {e}")
+                        continue
+
+            return jsonify(events)
+
+        except Exception as canvas_error:
+            print(f"Canvas service error: {str(canvas_error)}")
+            return jsonify({'error': 'Failed to fetch Canvas data'}), 500
+
     except Exception as e:
-        print(f"Error fetching calendar events: {str(e)}")
+        print(f"Calendar events error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/chat', methods=['POST'])
@@ -1760,6 +1759,25 @@ def api_summarize_url():
     except Exception as e:
         print(f"API error: {str(e)}")
         return jsonify({'error': f'Server error: {str(e)}'}), 500
+
+@app.route('/clear-cache', methods=['POST'])
+@login_required
+def clear_cache():
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({'error': 'User not logged in'}), 401
+
+        # Create the cache key using the same format as in the dashboard route
+        cache_key = f'dashboard-{user_id}'
+        
+        # Delete the cache
+        cache.delete(cache_key)
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        print(f"Error clearing cache: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.debug = True  

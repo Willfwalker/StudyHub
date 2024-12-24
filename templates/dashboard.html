@@ -1,17 +1,25 @@
 {% extends "base.html" %}
 
 {% block content %}
+<!-- Move the loader outside the content block to ensure it's not affected by other styles -->
+<div id="dashboard-loader" class="loading-overlay">
+    <div class="spinner"></div>
+</div>
+
 <div class="dashboard-header">
     <div class="header-left">
         <h1>Dashboard</h1>
-    </div>
-    <div class="header-right">
     </div>
 </div>
 
 <section class="classes-section">
     <div class="section-header">
-        <h2>Your Classes</h2>
+        <div class="title-refresh-wrapper">
+            <h2>Your Classes</h2>
+            <button id="classes-refresh" class="refresh-button">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+        </div>
         <div class="header-status">
             <div class="status-label">Current Status:</div>
             <div class="status-wrapper {{ homework_status }}">
@@ -101,6 +109,36 @@
         justify-content: space-between;
         align-items: center;
         margin-bottom: 2rem;
+        position: relative;
+        z-index: 1000;
+    }
+
+    .header-right {
+        margin-left: auto;
+        z-index: 1001;
+    }
+
+    .refresh-button {
+        position: relative;
+        z-index: 1002;
+        background-color: #1a73e8;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: background-color 0.2s;
+    }
+
+    .refresh-button:hover {
+        background-color: #1557b0;
+    }
+
+    .refresh-button i {
+        font-size: 14px;
     }
 
     .section-header {
@@ -366,6 +404,71 @@
     .fc-day-today {
         background-color: rgba(26, 115, 232, 0.1) !important;
     }
+
+    /* Add these new styles for the loading overlay */
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background-color: rgba(255, 255, 255, 0.95);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 99999;
+    }
+
+    .spinner {
+        width: 50px;
+        height: 50px;
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #1a73e8;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .refresh-button {
+        background-color: #1a73e8;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: background-color 0.2s;
+    }
+
+    .refresh-button:hover {
+        background-color: #1557b0;
+    }
+
+    .refresh-button i {
+        font-size: 14px;
+    }
+
+    /* Add rotation animation for the refresh icon */
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .refresh-button.refreshing i {
+        animation: spin 1s linear infinite;
+    }
+
+    .title-refresh-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
 </style>
 
 <link href='https://cdn.jsdelivr.net/npm/@fullcalendar/core/main.css' rel='stylesheet' />
@@ -373,28 +476,69 @@
 <script src='https://cdn.jsdelivr.net/npm/@fullcalendar/core/main.js'></script>
 <script src='https://cdn.jsdelivr.net/npm/@fullcalendar/daygrid/main.js'></script>
 <script>
+// Update the script to properly hide the loader
 document.addEventListener('DOMContentLoaded', function() {
-    var calendarEl = document.getElementById('calendar');
-    var calendar = new FullCalendar.Calendar(calendarEl, {
-        initialView: 'dayGridMonth',
-        headerToolbar: {
-            left: 'prev,next today',
-            center: 'title',
-            right: 'dayGridMonth,dayGridWeek'
-        },
-        events: [
-            // You'll need to pass these events from your backend
-            // Format: { title: 'Event', start: '2024-03-15', end: '2024-03-16' }
-            {% for event in upcoming_events %}
-            {
-                title: '{{ event.title }}',
-                start: '{{ event.date }}',
-                description: '{{ event.description }}'
-            }{% if not loop.last %},{% endif %}
-            {% endfor %}
-        ]
+    const loader = document.getElementById('dashboard-loader');
+    
+    // Hide loader when the page is fully loaded
+    window.addEventListener('load', function() {
+        loader.style.display = 'none';  // Changed from adding 'hidden' class
     });
-    calendar.render();
+
+    // Fallback: hide loader after 3 seconds if load event doesn't fire
+    setTimeout(function() {
+        loader.style.display = 'none';
+    }, 3000);
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Set the flag to indicate dashboard is loaded
+    window.dashboardLoaded = true;
+    
+    // Store dashboard state in sessionStorage
+    sessionStorage.setItem('dashboardLoaded', 'true');
+});
+
+// Check if this is a fresh page load
+if (!sessionStorage.getItem('dashboardLoaded')) {
+    // This is a fresh load, allow normal loading
+    sessionStorage.setItem('dashboardLoaded', 'true');
+}
+</script>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+<script>
+document.getElementById('classes-refresh').addEventListener('click', function() {
+    const button = this;
+    button.classList.add('refreshing');
+    button.disabled = true;
+
+    // Show the loader
+    document.getElementById('dashboard-loader').style.display = 'flex';
+
+    // Clear the cache and reload the page
+    fetch('/clear-cache', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token() }}'
+        },
+        body: JSON.stringify({}),
+        credentials: 'same-origin'
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        window.location.reload();
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        button.classList.remove('refreshing');
+        button.disabled = false;
+        document.getElementById('dashboard-loader').style.display = 'none';
+        alert('Failed to refresh dashboard. Please try again.');
+    });
 });
 </script>
 {% endblock %}

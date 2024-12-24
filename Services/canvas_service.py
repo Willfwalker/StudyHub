@@ -176,40 +176,53 @@ class CanvasService:
 
     def get_all_assignments(self) -> List[Dict]:
         """Get all assignments (cached)"""
-        cache_key = 'all_assignments'
-        cached_data = self._get_cached_data(cache_key)
-        if cached_data:
-            return cached_data
-
-        assignments = []
         try:
+            if not self.api_key or not self.canvas_url:
+                print("Missing API key or Canvas URL")
+                return []
+
+            cache_key = 'all_assignments'
+            cached_data = self._get_cached_data(cache_key)
+            if cached_data:
+                return cached_data
+
+            assignments = []
             # First get all active courses
             courses = self.get_classes()
+            if not courses:
+                print("No courses found")
+                return []
             
             # Then get assignments for each course
             for course in courses:
-                course_id = course['id']
-                endpoint = f"{self.canvas_url}/api/v1/courses/{course_id}/assignments"
-                params = {
-                    "include[]": ["submission"],
-                    "per_page": 100
-                }
-                
-                response = requests.get(endpoint, headers=self.get_headers(), params=params)
-                response.raise_for_status()
-                course_assignments = response.json()
-                
-                # Add course information to each assignment
-                for assignment in course_assignments:
-                    assignment['course_name'] = course.get('name')
-                    assignment['course_id'] = course_id
-                    assignments.append(assignment)
+                try:
+                    course_id = course['id']
+                    endpoint = f"{self.canvas_url}/api/v1/courses/{course_id}/assignments"
+                    params = {
+                        "include[]": ["submission"],
+                        "per_page": 100
+                    }
                     
-            result = assignments
-            self._set_cached_data(cache_key, result)
-            return result
-        except requests.exceptions.RequestException as e:
-            print(f"Error fetching all assignments: {e}")
+                    response = requests.get(endpoint, headers=self.get_headers(), params=params)
+                    response.raise_for_status()
+                    course_assignments = response.json()
+                    
+                    # Add course information to each assignment
+                    for assignment in course_assignments:
+                        if assignment.get('due_at'):  # Only include assignments with due dates
+                            assignment['course_name'] = course.get('name')
+                            assignment['course_id'] = course_id
+                            assignments.append(assignment)
+                            
+                except Exception as course_error:
+                    print(f"Error fetching assignments for course {course.get('name', 'Unknown')}: {str(course_error)}")
+                    continue
+                    
+            self._set_cached_data(cache_key, assignments)
+            return assignments
+            
+        except Exception as e:
+            print(f"Error in get_all_assignments: {str(e)}")
             return []
 
     def get_current_year(self) -> Optional[str]:
