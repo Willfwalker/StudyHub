@@ -1,0 +1,455 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="summarizer-container">
+    <div class="header">
+        <button class="back-button" onclick="window.history.back()">Back</button>
+        <h1>Document Summarizer</h1>
+        <div style="width: 80px;"></div>
+    </div>
+    
+    <div class="summarizer-card">
+        <p class="subtitle">Enter a URL to get a concise summary of its content</p>
+        
+        <div class="url-input-container">
+            <input type="url" id="urlInput" class="url-input" placeholder="Paste your URL here...">
+            <button class="summarize-button" onclick="summarizeUrl()">
+                <i class="fas fa-magic"></i>
+                Summarize
+            </button>
+        </div>
+
+        <div id="loadingIndicator" class="loading-indicator hidden">
+            <i class="fas fa-circle-notch fa-spin"></i>
+            Analyzing content...
+        </div>
+
+        <div id="summaryResult" class="summary-result hidden">
+            <div class="summary-header">
+                <h3>Summary</h3>
+                <button class="save-button" onclick="saveToNotes()">
+                    <i class="fas fa-save"></i>
+                    Save to Notes
+                </button>
+            </div>
+            <div id="summaryText" class="summary-text">
+                <div class="key-points"></div>
+                <div class="main-ideas"></div>
+            </div>
+        </div>
+
+        <div id="errorMessage" class="error-message hidden">
+            <i class="fas fa-exclamation-circle"></i>
+            <span id="errorText"></span>
+        </div>
+    </div>
+</div>
+
+<div id="saveModal" class="modal hidden">
+    <div class="modal-content">
+        <h3>Save Summary to Notes</h3>
+        <div class="course-select-container">
+            <label for="courseSelect">Select Course:</label>
+            <select id="courseSelect" class="course-select">
+                <option value="">Loading courses...</option>
+            </select>
+        </div>
+        <div class="modal-buttons">
+            <button class="cancel-button" onclick="closeModal()">Cancel</button>
+            <button class="confirm-button" onclick="confirmSave()">Save</button>
+        </div>
+    </div>
+</div>
+
+<style>
+    .header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 20px;
+        padding: 0 20px;
+        height: 60px;
+    }
+
+    .header h1 {
+        margin: 0;
+        font-size: 1.8em;
+        font-weight: 400;
+        color: #333;
+        flex-grow: 1;
+        text-align: center;
+        letter-spacing: 0.5px;
+    }
+
+    .back-button {
+        padding: 8px 16px;
+        background: transparent;
+        color: #333;
+        border: none;
+        font-size: 1em;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .back-button::before {
+        content: '←';
+        font-size: 1.2em;
+    }
+
+    .back-button:hover {
+        transform: translateX(-5px);
+        opacity: 0.8;
+    }
+
+    .summarizer-container {
+        max-width: 800px;
+        margin: 40px auto;
+        padding: 0 20px;
+    }
+
+    .summarizer-card {
+        background: white;
+        border-radius: 12px;
+        padding: 30px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+    }
+
+    .subtitle {
+        color: #666;
+        margin-bottom: 24px;
+    }
+
+    .url-input-container {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 24px;
+    }
+
+    .url-input {
+        flex: 1;
+        padding: 12px 16px;
+        border: 1px solid rgba(0,0,0,0.1);
+        border-radius: 8px;
+        font-size: 16px;
+        outline: none;
+        transition: border-color 0.2s;
+    }
+
+    .url-input:focus {
+        border-color: #000;
+    }
+
+    .summarize-button {
+        background: #000;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 0 24px;
+        font-size: 16px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: opacity 0.2s;
+    }
+
+    .summarize-button:hover {
+        opacity: 0.9;
+    }
+
+    .loading-indicator {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #666;
+        margin: 20px 0;
+    }
+
+    .summary-result {
+        margin-top: 24px;
+        padding: 24px;
+        background: #f8f9fa;
+        border-radius: 12px;
+        border: 1px solid rgba(0,0,0,0.1);
+    }
+
+    .summary-text {
+        line-height: 1.8;
+        color: #333;
+        font-size: 16px;
+    }
+
+    .key-points, .main-ideas {
+        margin: 16px 0;
+    }
+
+    .key-points::before {
+        content: "Key Points:";
+        display: block;
+        font-weight: 600;
+        font-size: 18px;
+        margin-bottom: 12px;
+        color: #1a1a1a;
+    }
+
+    .main-ideas::before {
+        content: "Main Ideas:";
+        display: block;
+        font-weight: 600;
+        font-size: 18px;
+        margin-bottom: 12px;
+        margin-top: 24px;
+        color: #1a1a1a;
+    }
+
+    .summary-point {
+        position: relative;
+        padding-left: 24px;
+        margin-bottom: 12px;
+    }
+
+    .summary-point::before {
+        content: "•";
+        position: absolute;
+        left: 8px;
+        color: #666;
+    }
+
+    .error-message {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #dc3545;
+        margin-top: 16px;
+        padding: 12px;
+        background: #ffebee;
+        border-radius: 8px;
+    }
+
+    .hidden {
+        display: none;
+    }
+
+    .summary-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+    .save-button {
+        background: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 8px 16px;
+        font-size: 14px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: opacity 0.2s;
+    }
+
+    .save-button:hover {
+        opacity: 0.9;
+    }
+
+    .modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+
+    .modal-content {
+        background: white;
+        padding: 24px;
+        border-radius: 12px;
+        width: 90%;
+        max-width: 400px;
+    }
+
+    .course-select-container {
+        margin: 20px 0;
+    }
+
+    .course-select {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+
+    .modal-buttons {
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        margin-top: 20px;
+    }
+
+    .cancel-button {
+        background: #f5f5f5;
+        color: #333;
+        border: none;
+        border-radius: 4px;
+        padding: 8px 16px;
+        cursor: pointer;
+    }
+
+    .confirm-button {
+        background: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 8px 16px;
+        cursor: pointer;
+    }
+
+    .hidden {
+        display: none !important;
+    }
+</style>
+
+<script>
+async function summarizeUrl() {
+    const urlInput = document.getElementById('urlInput');
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    const summaryResult = document.getElementById('summaryResult');
+    const summaryText = document.getElementById('summaryText');
+    const errorMessage = document.getElementById('errorMessage');
+    const errorText = document.getElementById('errorText');
+
+    // Reset previous states
+    loadingIndicator.classList.remove('hidden');
+    summaryResult.classList.add('hidden');
+    errorMessage.classList.add('hidden');
+
+    try {
+        const response = await fetch('/api/summarize-url', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({ url: urlInput.value })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            // Format the summary text
+            const summary = data.summary;
+            
+            // Split into key points and main ideas
+            const keyPointsMatch = summary.match(/\*\*Key Points:\*\*(.*?)(?=\*\*Main Ideas:\*\*)/s);
+            const mainIdeasMatch = summary.match(/\*\*Main Ideas:\*\*(.*)/s);
+            
+            const keyPointsSection = summaryText.querySelector('.key-points');
+            const mainIdeasSection = summaryText.querySelector('.main-ideas');
+            
+            // Process key points
+            if (keyPointsMatch && keyPointsMatch[1]) {
+                const points = keyPointsMatch[1]
+                    .split('*')
+                    .filter(point => point.trim())
+                    .map(point => point.trim());
+                
+                keyPointsSection.innerHTML = points
+                    .map(point => `<div class="summary-point">${point}</div>`)
+                    .join('');
+            }
+            
+            // Process main ideas
+            if (mainIdeasMatch && mainIdeasMatch[1]) {
+                const ideas = mainIdeasMatch[1]
+                    .split('*')
+                    .filter(idea => idea.trim())
+                    .map(idea => idea.trim());
+                
+                mainIdeasSection.innerHTML = ideas
+                    .map(idea => `<div class="summary-point">${idea}</div>`)
+                    .join('');
+            }
+            
+            summaryResult.classList.remove('hidden');
+        } else {
+            throw new Error(data.error || 'Failed to generate summary');
+        }
+    } catch (error) {
+        errorText.textContent = error.message;
+        errorMessage.classList.remove('hidden');
+    } finally {
+        loadingIndicator.classList.add('hidden');
+    }
+}
+
+async function loadCourses() {
+    try {
+        const response = await fetch('/api/canvas/classes');
+        const courses = await response.json();
+        
+        const courseSelect = document.getElementById('courseSelect');
+        courseSelect.innerHTML = courses.map(course => 
+            `<option value="${course.id}">${course.name}</option>`
+        ).join('');
+    } catch (error) {
+        console.error('Error loading courses:', error);
+    }
+}
+
+function saveToNotes() {
+    loadCourses();
+    document.getElementById('saveModal').classList.remove('hidden');
+}
+
+function closeModal() {
+    document.getElementById('saveModal').classList.add('hidden');
+}
+
+async function confirmSave() {
+    const courseId = document.getElementById('courseSelect').value;
+    const courseName = document.getElementById('courseSelect').options[document.getElementById('courseSelect').selectedIndex].text;
+    const summaryText = document.getElementById('summaryText').innerText;
+    
+    if (!courseId) {
+        alert('Please select a course');
+        return;
+    }
+
+    try {
+        const notesName = `URL Summary - ${new Date().toLocaleDateString()}`;
+        const response = await fetch('/take-notes', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            params: new URLSearchParams({
+                course_id: courseId,
+                course_name: courseName,
+                notes_name: notesName
+            })
+        });
+
+        if (response.ok) {
+            closeModal();
+            alert('Summary saved to notes successfully!');
+        } else {
+            throw new Error('Failed to save summary');
+        }
+    } catch (error) {
+        console.error('Error saving summary:', error);
+        alert('Failed to save summary. Please try again.');
+    }
+}
+</script>
+{% endblock %}

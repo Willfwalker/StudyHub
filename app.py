@@ -1733,6 +1733,34 @@ def search_resources():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/document-summarizer')
+@login_required
+def document_summarizer():
+    return render_template('document_summarizer.html')
+
+@app.route('/api/summarize-url', methods=['POST'])
+@csrf.exempt
+def api_summarize_url():
+    try:
+        url = request.json.get('url')
+        if not url:
+            return jsonify({'error': 'No URL provided'}), 400
+
+        ai_service = AIService()
+        try:
+            summary = ai_service.summarize_url_content(url)
+            if summary:
+                return jsonify({'summary': summary})
+            else:
+                return jsonify({'error': 'Failed to generate summary - empty response'}), 500
+        except Exception as e:
+            print(f"AI Service error: {str(e)}")
+            return jsonify({'error': str(e)}), 500
+            
+    except Exception as e:
+        print(f"API error: {str(e)}")
+        return jsonify({'error': f'Server error: {str(e)}'}), 500
+
 if __name__ == '__main__':
     app.debug = True  
     app.run(debug=True)  

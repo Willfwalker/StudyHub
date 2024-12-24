@@ -412,6 +412,40 @@ class AIService:
             print(f"Error finding learning resources: {e}")
             return None
 
+    def summarize_url_content(self, url: str) -> Optional[str]:
+        """Generate a summary of the content from a URL."""
+        try:
+            # Import requests here to avoid circular imports
+            import requests
+            from bs4 import BeautifulSoup
+            
+            # Fetch the webpage content
+            response = requests.get(url)
+            response.raise_for_status()
+            
+            # Parse the HTML content
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # Extract main content (you might need to adjust this based on the websites you want to support)
+            # Remove script and style elements
+            for script in soup(["script", "style"]):
+                script.decompose()
+            
+            # Get text content
+            text = soup.get_text()
+            
+            # Clean up the text
+            lines = (line.strip() for line in text.splitlines())
+            chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+            text = ' '.join(chunk for chunk in chunks if chunk)
+            
+            # Use the existing summarize_text method
+            return self.summarize_text(text)
+            
+        except Exception as e:
+            print(f"Error summarizing URL content: {str(e)}")
+            raise Exception(f"Failed to summarize URL content: {str(e)}")
+
 
 if __name__ == "__main__":
     # Create an instance of AIService
