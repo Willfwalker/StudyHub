@@ -334,6 +334,84 @@ class AIService:
             print(f"Error generating quiz: {e}")
             return None
 
+    def find_learning_resources(self, topic: str) -> Optional[List[dict]]:
+        """Find diverse learning resources on a given topic."""
+        try:
+            if not topic or not isinstance(topic, str):
+                raise ValueError("Invalid topic provided")
+            
+            # Create a prompt to get search terms for different resource types
+            prompt = f"""For the topic '{topic}', generate 5 specific search queries that would help find:
+            - Academic papers/journals
+            - Online courses
+            - Tutorial websites
+            - Educational videos
+            - Documentation/guides
+            Return only the search queries, one per line."""
+            
+            # Get optimized search terms
+            response = self.model.generate_content(prompt)
+            if not response or not response.text:
+                raise Exception("Failed to generate search terms")
+            
+            search_terms = response.text.strip().split('\n')
+            
+            # Initialize YouTube API
+            youtube = build('youtube', 'v3', developerKey=os.getenv('YOUTUBE_API_KEY'))
+            
+            resources = []
+            
+            # Get more YouTube videos
+            video_response = youtube.search().list(
+                part="snippet",
+                maxResults=5,
+                q=topic,
+                type="video",
+                relevanceLanguage="en",
+                videoEmbeddable="true"
+            ).execute()
+            
+            for item in video_response['items']:
+                resources.append({
+                    'title': item['snippet']['title'],
+                    'url': f"https://www.youtube.com/watch?v={item['id']['videoId']}",
+                    'type': 'Video Tutorial'
+                })
+            
+            # Generate other resource suggestions using AI
+            resource_prompt = f"""Generate 8 high-quality learning resources for '{topic}'. 
+            For each resource provide exactly three pieces of information in this format:
+            Title | URL | Type
+            
+            Include a mix of:
+            - Academic papers or journal articles
+            - Online courses (from platforms like Coursera, edX)
+            - Documentation or guide websites
+            - Interactive tutorial websites
+            
+            Each line should contain exactly three items separated by | characters."""
+            
+            response = self.model.generate_content(resource_prompt)
+            if not response or not response.text:
+                raise Exception("Failed to generate resources")
+            
+            # Parse AI-generated resources
+            for line in response.text.strip().split('\n'):
+                parts = line.split('|')
+                if len(parts) == 3:  # Only process lines with exactly 3 parts
+                    title, url, res_type = [x.strip() for x in parts]
+                    resources.append({
+                        'title': title,
+                        'url': url,
+                        'type': res_type
+                    })
+            
+            return resources[:10]  # Ensure we return max 10 resources
+            
+        except Exception as e:
+            print(f"Error finding learning resources: {e}")
+            return None
+
 
 if __name__ == "__main__":
     # Create an instance of AIService

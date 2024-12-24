@@ -1702,6 +1702,37 @@ def lecture_summary():
     # ... your logic ...
     return render_template('lecture_summary_result.html', summary=summary)
 
+@app.route('/resource-finder')
+@login_required
+def resource_finder():
+    return render_template('resource_finder.html')
+
+@app.route('/api/search-resources', methods=['POST'])
+@login_required
+def search_resources():
+    try:
+        data = request.get_json()
+        topic = data.get('topic')
+        
+        if not topic:
+            return jsonify({'error': 'No search topic provided'}), 400        
+        ai_service = AIService()
+        
+        # Add error handling around the AI service call
+        try:
+            resources = ai_service.find_learning_resources(topic)
+            
+            if resources is None:
+                return jsonify({'error': 'Failed to find resources'}), 500
+                
+            return jsonify(resources)
+            
+        except Exception as ai_error:
+            return jsonify({'error': f'AI Service error: {str(ai_error)}'}), 500
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     app.debug = True  
     app.run(debug=True)  
