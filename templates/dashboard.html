@@ -119,9 +119,7 @@
     }
 
     .refresh-button {
-        position: relative;
-        z-index: 1002;
-        background-color: #1a73e8;
+        background: linear-gradient(135deg, #1a73e8, #0d47a1);
         color: white;
         border: none;
         padding: 8px 16px;
@@ -130,15 +128,38 @@
         display: flex;
         align-items: center;
         gap: 8px;
-        transition: background-color 0.2s;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
     }
 
     .refresh-button:hover {
-        background-color: #1557b0;
+        background: linear-gradient(135deg, #1557b0, #083378);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(26, 115, 232, 0.2);
     }
 
-    .refresh-button i {
-        font-size: 14px;
+    .refresh-button:active {
+        transform: translateY(0);
+        box-shadow: 0 2px 4px rgba(26, 115, 232, 0.2);
+    }
+
+    .refresh-button::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        transition: width 0.3s, height 0.3s;
+    }
+
+    .refresh-button:active::after {
+        width: 200px;
+        height: 200px;
     }
 
     .section-header {
@@ -227,12 +248,13 @@
         border-radius: 12px;
         overflow: hidden;
         box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        transition: transform 0.2s;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
         cursor: pointer;
     }
 
     .class-card:hover {
-        transform: translateY(-2px);
+        transform: translateY(-4px);
+        box-shadow: 0 8px 16px rgba(0,0,0,0.1);
     }
 
     .class-image {
@@ -351,6 +373,7 @@
         align-items: center;
         padding: 0.75rem 0;
         border-bottom: 1px solid #eee;
+        transition: background-color 0.2s ease;
     }
 
     .todo-item:last-child {
@@ -369,6 +392,10 @@
     .due-date {
         color: #666;
         font-size: 0.9rem;
+    }
+
+    .todo-item:hover {
+        background-color: rgba(26, 115, 232, 0.05);
     }
 
     /* Responsive adjustments */
@@ -461,7 +488,7 @@
     }
 
     .refresh-button.refreshing i {
-        animation: spin 1s linear infinite;
+        animation: spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
     }
 
     .title-refresh-wrapper {
