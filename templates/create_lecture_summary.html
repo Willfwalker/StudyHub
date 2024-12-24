@@ -2,88 +2,114 @@
 
 {% block content %}
 <style>
+    .container {
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: #ffffff;
+    }
+
     .recording-widget {
-        background: rgba(26, 26, 26, 0.9);
-        border: 2px solid rgba(255, 255, 255, 0.2);
-        border-radius: 15px;
-        padding: 30px;
-        width: 300px;
+        background: #ffffff;
+        border: 1px solid #e0e0e0;
+        border-radius: 24px;
+        padding: 40px;
+        width: 400px;
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 20px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        margin: 100px auto;
+        gap: 30px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
     }
 
     .widget-header {
-        color: white;
-        font-size: 1.2em;
+        color: #2c3e50;
+        font-size: 1.8em;
+        font-weight: 600;
         margin-bottom: 10px;
         text-align: center;
     }
 
     .play-button {
-        width: 80px;
-        height: 80px;
-        background: rgba(255, 255, 255, 0.1);
-        border: 2px solid rgba(255, 255, 255, 0.2);
+        width: 120px;
+        height: 120px;
+        background: #ff3b30;
+        border: none;
         border-radius: 50%;
         cursor: pointer;
         display: flex;
         justify-content: center;
         align-items: center;
-        transition: all 0.3s ease;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 4px 12px rgba(255, 59, 48, 0.2);
     }
 
     .play-button:hover {
-        background: rgba(255, 255, 255, 0.2);
         transform: scale(1.05);
+        background: #ff453a;
+        box-shadow: 0 6px 16px rgba(255, 59, 48, 0.3);
     }
 
     .play-icon {
         width: 0;
         height: 0;
         border-style: solid;
-        border-width: 15px 0 15px 25px;
-        border-color: transparent transparent transparent rgba(255, 255, 255, 0.9);
-        margin-left: 5px;
+        border-width: 20px 0 20px 35px;
+        border-color: transparent transparent transparent #ffffff;
     }
 
     .recording {
-        background: rgba(255, 0, 0, 0.8) !important;
+        background: #ff453a !important;
+        border: none !important;
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.4); }
+        70% { box-shadow: 0 0 0 20px rgba(255, 59, 48, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0); }
     }
 
     .recording .play-icon {
-        width: 20px;
-        height: 20px;
+        width: 30px;
+        height: 30px;
         border: none;
-        background: white;
+        background: #ffffff;
         margin: 0;
-    }
-
-    .status-text {
-        color: white;
-        font-size: 0.9em;
-        margin-top: 10px;
-        opacity: 0.8;
+        border-radius: 4px;
     }
 
     .timer {
-        color: white;
-        font-size: 1.5em;
-        font-family: monospace;
-        margin-top: 10px;
+        color: #2c3e50;
+        font-size: 3.5em;
+        font-family: 'SF Mono', monospace;
+        font-weight: 300;
+        letter-spacing: 2px;
+    }
+
+    .status-text {
+        color: #6c757d;
+        font-size: 1.1em;
+        font-weight: 400;
+        text-align: center;
+        padding: 10px 20px;
+        border-radius: 12px;
+        background: #f8f9fa;
     }
 </style>
 
-<div class="recording-widget">
-    <div class="widget-header">Record Lecture</div>
-    <button class="play-button" id="recordButton">
-        <div class="play-icon"></div>
-    </button>
-    <div class="timer" id="timer">00:00</div>
-    <div class="status-text" id="statusText">Click to start recording</div>
+<div class="container">
+    <div class="recording-widget">
+        <div class="widget-header">Record Your Lecture</div>
+        <button class="play-button" id="recordButton">
+            <div class="play-icon"></div>
+        </button>
+        <div class="timer" id="timer">00:00</div>
+        <div class="status-text" id="statusText">Click to start recording</div>
+    </div>
 </div>
 
 <script>

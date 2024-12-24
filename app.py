@@ -101,23 +101,22 @@ mail = Mail(app)
 def get_class_image(class_name, course_code=None):
     """Get image URL for a class using predefined images from class_images.json"""
     try:
-        # Load the predefined images from JSON
-        with open('static/images/cache/class_images.json', 'r') as f:
-            class_images = json.load(f)
+        # Load the predefined images once and cache in memory
+        if not hasattr(get_class_image, '_class_images'):
+            with open('static/images/cache/class_images.json', 'r') as f:
+                get_class_image._class_images = json.load(f)
         
-        # If we have a course code, try to match it first
+        # Try course code first
         if course_code:
-            # Extract the department code (first part before the dash)
             dept_code = course_code.split('-')[0]
-            if dept_code in class_images:
-                return class_images[dept_code]['pexels_image']
+            if dept_code in get_class_image._class_images:
+                return get_class_image._class_images[dept_code]['pexels_image']
         
-        # If no course code or no match, try to find a matching department code in the class name
-        for dept_code, info in class_images.items():
+        # Try class name match
+        for dept_code, info in get_class_image._class_images.items():
             if dept_code in class_name.upper():
                 return info['pexels_image']
         
-        # If no match is found, return default image
         return url_for('static', filename='images/classes/default.jpg')
         
     except Exception as e:
@@ -1697,6 +1696,11 @@ def take_notes():
     except Exception as e:
         print(f"Error creating notes: {str(e)}")
         return str(e), 500
+
+@app.route('/lecture-summary')
+def lecture_summary():
+    # ... your logic ...
+    return render_template('lecture_summary_result.html', summary=summary)
 
 if __name__ == '__main__':
     app.debug = True  
