@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StudyHub</title>
     
+    <!-- Add favicon -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/Favicon.png') }}">
+    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <style>
         /* Reset and base styles */
@@ -654,6 +657,28 @@
                     </div>
                 `;
             }
+        }
+
+        function clearCache() {
+            fetch('/clear-cache', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Reload the current page
+                    window.location.reload();
+                } else {
+                    console.error('Failed to clear cache:', data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error clearing cache:', error);
+            });
         }
     </script>
 </body>

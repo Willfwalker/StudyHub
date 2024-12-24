@@ -523,7 +523,6 @@ document.getElementById('classes-refresh').addEventListener('click', function() 
             'Content-Type': 'application/json',
             'X-CSRFToken': '{{ csrf_token() }}'
         },
-        body: JSON.stringify({}),
         credentials: 'same-origin'
     })
     .then(response => {

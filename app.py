@@ -1781,24 +1781,33 @@ def api_summarize_url():
 @login_required
 def clear_cache():
     try:
-        data = request.get_json()
-        route = data.get('route', request.referrer)  # Get the route from the request or use referrer
         user_id = session.get('user_id', '')
         
-        # Create the specific cache key
-        if 'grades' in route:
-            cache_key = f'check_grades-{user_id}'
-        elif 'dashboard' in route:
-            cache_key = f'dashboard-{user_id}'
-        else:
-            cache_key = f'{route}-{user_id}'
-            
-        # Delete the specific cache
-        cache.delete(cache_key)
+        # Clear all user-specific caches
+        cache.delete(f'dashboard-{user_id}')
+        cache.delete(f'check_grades-{user_id}')
+        cache.delete(f'course-{user_id}')
         
-        return jsonify({'success': True})
+        # Clear any other potential cache keys
+        cache.delete_many([
+            f'assignments-{user_id}',
+            f'calendar-{user_id}',
+            f'courses-{user_id}'
+        ])
+        
+        # For debugging
+        print(f"Cache cleared for user: {user_id}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Cache cleared successfully'
+        })
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        print(f"Error clearing cache: {str(e)}")
+        return jsonify({
+            'error': str(e),
+            'message': 'Failed to clear cache'
+        }), 500
 
 if __name__ == '__main__':
     app.debug = True  

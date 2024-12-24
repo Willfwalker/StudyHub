@@ -181,11 +181,9 @@ async function refreshData() {
         const response = await fetch('/clear-cache', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                grades: true
-            })
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            }
         });
         
         if (response.ok) {
