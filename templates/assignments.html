@@ -140,45 +140,52 @@
 </div>
 
 <div class="assignments-list">
-    {% for assignment in assignments %}
-    <a href="{{ url_for('assignment_details', course_id=assignment.course_id, assignment_id=assignment.id) }}" class="assignment-card">
-        <span class="status-badge">Upcoming</span>
-        <span class="points">{{ assignment.points_possible }} points</span>
-        <div class="document-options" onclick="event.preventDefault();">
-            <button class="start-button" onclick="toggleOptions(event, this)">Start Assignment</button>
-            <div class="options-dropdown">
-                <div class="doc-option" onclick="createDocument(event, '{{ assignment.course_id }}', '{{ assignment.id }}', 'mla')">
-                    <img src="{{ url_for('static', filename='images/doc-icon.png') }}" alt="Doc" class="doc-icon">
-                    MLA Document
-                </div>
-                <div class="doc-option" onclick="createDocument(event, '{{ assignment.course_id }}', '{{ assignment.id }}', 'apa')">
-                    <img src="{{ url_for('static', filename='images/doc-icon.png') }}" alt="Doc" class="doc-icon">
-                    APA Document
-                </div>
-                <div class="doc-option" onclick="createDocument(event, '{{ assignment.course_id }}', '{{ assignment.id }}', 'sheets')">
-                    <img src="{{ url_for('static', filename='images/sheets-icon.png') }}" alt="Sheets" class="doc-icon">
-                    Spreadsheet
-                </div>
-                <div class="doc-option" onclick="createDocument(event, '{{ assignment.course_id }}', '{{ assignment.id }}', 'slides')">
-                    <img src="{{ url_for('static', filename='images/slides-icon.png') }}" alt="Slides" class="doc-icon">
-                    Presentation
+    {% if assignments %}
+        {% for assignment in assignments %}
+        <a href="{{ url_for('assignment_details', course_id=assignment.course_id, assignment_id=assignment.id) }}" class="assignment-card">
+            <span class="status-badge">Upcoming</span>
+            <span class="points">{{ assignment.points_possible }} points</span>
+            <div class="document-options" onclick="event.preventDefault();">
+                <button class="start-button" onclick="toggleOptions(event, this)">Start Assignment</button>
+                <div class="options-dropdown">
+                    <div class="doc-option" onclick="createDocument(event, '{{ assignment.course_id }}', '{{ assignment.id }}', 'mla')">
+                        <img src="{{ url_for('static', filename='images/doc-icon.png') }}" alt="Doc" class="doc-icon">
+                        MLA Document
+                    </div>
+                    <div class="doc-option" onclick="createDocument(event, '{{ assignment.course_id }}', '{{ assignment.id }}', 'apa')">
+                        <img src="{{ url_for('static', filename='images/doc-icon.png') }}" alt="Doc" class="doc-icon">
+                        APA Document
+                    </div>
+                    <div class="doc-option" onclick="createDocument(event, '{{ assignment.course_id }}', '{{ assignment.id }}', 'sheets')">
+                        <img src="{{ url_for('static', filename='images/sheets-icon.png') }}" alt="Sheets" class="doc-icon">
+                        Spreadsheet
+                    </div>
+                    <div class="doc-option" onclick="createDocument(event, '{{ assignment.course_id }}', '{{ assignment.id }}', 'slides')">
+                        <img src="{{ url_for('static', filename='images/slides-icon.png') }}" alt="Slides" class="doc-icon">
+                        Presentation
+                    </div>
                 </div>
             </div>
+            <h2 class="assignment-title">{{ assignment.name }}</h2>
+            <div class="assignment-course">{{ assignment.course_name }}</div>
+            <div class="assignment-meta">
+                <div class="meta-item">
+                    <span class="meta-icon">📅</span>
+                    <span>Due {{ assignment.due_at|format_date }}</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-icon">⏰</span>
+                    <span>{{ assignment.days_until_due }} days</span>
+                </div>
+            </div>
+        </a>
+        {% endfor %}
+    {% else %}
+        <div style="text-align: center; padding: 40px; color: #666;">
+            <h2>No Current Assignments</h2>
+            <p>You're all caught up! Check back later for new assignments.</p>
         </div>
-        <h2 class="assignment-title">{{ assignment.name }}</h2>
-        <div class="assignment-course">{{ assignment.course_name }}</div>
-        <div class="assignment-meta">
-            <div class="meta-item">
-                <span class="meta-icon">📅</span>
-                <span>Due {{ assignment.due_at|format_date }}</span>
-            </div>
-            <div class="meta-item">
-                <span class="meta-icon">⏰</span>
-                <span>{{ assignment.days_until_due }} days</span>
-            </div>
-        </div>
-    </a>
-    {% endfor %}
+    {% endif %}
 </div>
 
 <script>

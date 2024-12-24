@@ -46,10 +46,35 @@ CLASS_IMAGES = {
 }
 
 # Initialize Firebase with all required configurations
-cred = credentials.Certificate("/Users/willwalker/Desktop/Website/student-hub-28ea1-firebase-adminsdk-x3tg5-8e4d21f2be.json")
-firebase_app = initialize_app(cred, {
-    'databaseURL': 'https://student-hub-28ea1-default-rtdb.firebaseio.com/'
-})
+try:
+    # Get credentials path from environment variable
+    cred_path = os.getenv('FIREBASE_CREDENTIALS_PATH')
+    
+    # Debug: Print the contents of the credentials file (BE CAREFUL with sensitive info)
+    try:
+        with open(cred_path, 'r') as f:
+            cred_content = f.read()
+            print(f"Credential file length: {len(cred_content)} characters")
+            print(f"Credential file starts with: {cred_content[:50]}...")  # Only print start of file
+    except Exception as file_error:
+        print(f"Error reading credentials file: {str(file_error)}")
+    
+    cred = credentials.Certificate(cred_path)
+    firebase_app = initialize_app(cred, {
+        'databaseURL': 'https://student-hub-28ea1-default-rtdb.firebaseio.com/'
+    })
+    print("Firebase initialized successfully")
+    
+    # Test the database connection immediately
+    test_ref = db.reference('test')
+    test_ref.set({'test': 'connection successful'})
+    print("Database connection test successful")
+    
+except Exception as e:
+    print(f"Firebase initialization error: {str(e)}")
+    print(f"Error type: {type(e).__name__}")
+    if hasattr(e, 'args'):
+        print(f"Error args: {e.args}")
 
 # Test the database connection
 def test_db_connection():
@@ -510,43 +535,64 @@ def video_prompt():
 
 @app.route('/grades')
 @login_required
-@cache.cached(timeout=300)
 def check_grades():
     try:
-        canvas_service = CanvasService()
-        courses = canvas_service.get_classes()
+        user_id = session.get('user_id')
+        if not user_id:
+            print("No user_id in session")
+            return redirect(url_for('login'))
+                
+        try:
+            # Test Firebase connection
+            user_ref = db.reference(f'users/{user_id}')
+            user_data = user_ref.get()
+            print(f"Firebase user data: {user_data}")
+            
+            if not user_data:
+                return render_template('check_grades.html', 
+                                    courses=[], 
+                                    error="User data not found. Please log in again.")
+                                    
+            if not user_data.get('canvas_api_key'):
+                return render_template('check_grades.html', 
+                                    courses=[], 
+                                    error="Canvas API key not found. Please update your profile.")
+                                    
+        except Exception as firebase_error:
+            print(f"Firebase error: {str(firebase_error)}")
+            return render_template('check_grades.html', 
+                                courses=[], 
+                                error="Error accessing user data. Please try logging in again.")
+
+        # Initialize Canvas service
+        canvas_service = CanvasService(user_id)
         
-        # Get grades for each course
+        if not canvas_service.api_key:
+            return render_template('check_grades.html', 
+                                courses=[], 
+                                error="Canvas API key not found. Please update your profile.")
+
+        # Get courses and grades
+        courses = canvas_service.get_classes()
         courses_with_grades = []
+        
         for course in courses:
             grades = canvas_service.get_grades(course['id'])
-            
-            if grades:
-                for enrollment in grades:
-                    # Check if this enrollment belongs to the current user
-                    if enrollment.get('type') == 'StudentEnrollment':
-                        # Get the grade from the grades object
-                        grade_data = enrollment.get('grades', {})                        
-                        # Try to get any available score in this order:
-                        # 1. Current score
-                        # 2. Final score
-                        # 3. Unposted current score
-                        grade = grade_data.get('current_score')
-                        if grade is None:
-                            grade = grade_data.get('final_score')
-                        if grade is None:
-                            grade = grade_data.get('unposted_current_score')
-                        
-                        courses_with_grades.append({
-                            'name': course['name'],
-                            'grade': grade if grade is not None else 'N/A'
-                        })
-                        break  # Found the student enrollment, no need to check others
-    
-        return render_template('check_grades.html', courses=courses_with_grades)
+            course_data = {
+                'name': course['name'],
+                'grade': grades.get('percentage', 'N/A') if isinstance(grades, dict) else 'N/A'
+            }
+            courses_with_grades.append(course_data)
         
+        return render_template('check_grades.html', 
+                             courses=courses_with_grades,
+                             error=None)
+                             
     except Exception as e:
-        return render_template('check_grades.html', courses=[], error=str(e))
+        print(f"Error in check_grades: {str(e)}")
+        return render_template('check_grades.html', 
+                             courses=[], 
+                             error="An unexpected error occurred. Please try again later.")
 
 @app.route('/create-lecture-summary')
 def create_lecture_summary():
@@ -1511,7 +1557,6 @@ def quiz_maker():
 @app.route('/create-quiz/<int:course_id>')
 @login_required
 def create_quiz_for_course(course_id):
-    print(f"Received request for course ID: {course_id}")  # Debug print
     try:
         user_id = session.get('user_id')
         if not user_id:

@@ -63,47 +63,71 @@
 </style>
 
 <h1 class="page-title">Current Grades</h1>
-<table class="grades-table">
-    <thead>
-        <tr>
-            <th>Course Name</th>
-            <th>Current Grade</th>
-            <th>Letter Grade</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for course in courses %}
+
+{% if error %}
+    <div style="text-align: center; padding: 20px; color: #721c24; background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; margin-bottom: 20px;">
+        {{ error }}
+    </div>
+{% endif %}
+
+{% if courses %}
+    <table class="grades-table">
+        <thead>
             <tr>
-                <td>{{ course.name }}</td>
-                <td class="grade-cell">
-                    {% if course.grade != 'N/A' %}
-                        {{ "%.1f"|format(course.grade|float) }}%
-                    {% else %}
-                        N/A
-                    {% endif %}
-                </td>
-                <td class="grade-cell 
-                    {% if course.grade != 'N/A' %}
-                        {% if course.grade|float >= 90 %}grade-a
-                        {% elif course.grade|float >= 80 %}grade-b
-                        {% elif course.grade|float >= 70 %}grade-c
-                        {% elif course.grade|float >= 60 %}grade-d
-                        {% else %}grade-f
-                        {% endif %}
-                    {% endif %}">
-                    {% if course.grade != 'N/A' %}
-                        {% if course.grade|float >= 90 %}A
-                        {% elif course.grade|float >= 80 %}B
-                        {% elif course.grade|float >= 70 %}C
-                        {% elif course.grade|float >= 60 %}D
-                        {% else %}F
-                        {% endif %}
-                    {% else %}
-                        N/A
-                    {% endif %}
-                </td>
+                <th>Course Name</th>
+                <th>Current Grade</th>
+                <th>Letter Grade</th>
             </tr>
-        {% endfor %}
-    </tbody>
-</table>
+        </thead>
+        <tbody>
+            {% for course in courses %}
+                <tr>
+                    <td>{{ course.name }}</td>
+                    <td class="grade-cell">
+                        {% if course.grade != 'N/A' %}
+                            <span class="
+                                {% if course.grade|float >= 90 %}grade-a
+                                {% elif course.grade|float >= 80 %}grade-b
+                                {% elif course.grade|float >= 70 %}grade-c
+                                {% elif course.grade|float >= 60 %}grade-d
+                                {% else %}grade-f
+                                {% endif %}">
+                                {{ "%.1f"|format(course.grade|float) }}%
+                            </span>
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td class="grade-cell">
+                        {% if course.grade != 'N/A' %}
+                            <span class="
+                                {% if course.grade|float >= 90 %}grade-a
+                                {% elif course.grade|float >= 80 %}grade-b
+                                {% elif course.grade|float >= 70 %}grade-c
+                                {% elif course.grade|float >= 60 %}grade-d
+                                {% else %}grade-f
+                                {% endif %}">
+                                {% if course.grade|float >= 90 %}A
+                                {% elif course.grade|float >= 80 %}B
+                                {% elif course.grade|float >= 70 %}C
+                                {% elif course.grade|float >= 60 %}D
+                                {% else %}F
+                                {% endif %}
+                            </span>
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    {% if not error %}
+        <div style="text-align: center; padding: 20px; color: #666;">
+            <p>No grades available at this time.</p>
+        </div>
+    {% endif %}
+{% endif %}
+
 {% endblock %}

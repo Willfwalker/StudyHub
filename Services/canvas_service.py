@@ -16,18 +16,28 @@ class CanvasService:
         self.cache_duration = 300  # Cache duration in seconds (5 minutes)
         
         self.user_id = user_id
+        self.api_key = None
+        self.canvas_url = None
+        
         if user_id:
-            user_ref = db.reference(f'users/{user_id}')
-            user_data = user_ref.get()
-            if user_data:
-                self.api_key = user_data.get('canvas_api_key')
-                self.canvas_url = user_data.get('canvas_url', getenv('CANVAS_URL'))
-            else:
-                self.api_key = None
-                self.canvas_url = None
-        else:
-            self.api_key = None
-            self.canvas_url = None
+            try:
+                user_ref = db.reference(f'users/{user_id}')
+                user_data = user_ref.get()
+                
+                if user_data:
+                    self.api_key = user_data.get('canvas_api_key')
+                    self.canvas_url = user_data.get('canvas_url', getenv('CANVAS_URL'))
+                    
+                    if not self.api_key:
+                        print(f"No Canvas API key found for user {user_id}")
+                    if not self.canvas_url:
+                        print(f"No Canvas URL found for user {user_id}")
+                else:
+                    print(f"No user data found for user {user_id}")
+                    
+            except Exception as e:
+                print(f"Error initializing CanvasService: {str(e)}")
+                raise
 
     def get_headers(self):
         if not self.api_key:
