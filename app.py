@@ -201,13 +201,15 @@ def base():
         return redirect(url_for('login'))
 
 def make_cache_key(*args, **kwargs):
-    """Create a cache key based on the user ID"""
-    return f'dashboard-{session.get("user_id", "")}'
+    """Create a cache key based on the user ID and route name"""
+    # Get the current route name
+    route = request.endpoint or 'default'
+    return f'{route}-{session.get("user_id", "")}'
 
 @app.route('/')
 @app.route('/dashboard')
 @login_required
-@cache.cached(timeout=3600, key_prefix=make_cache_key)  # Cache for 1 hour with user-specific keys
+@cache.cached(timeout=3600, key_prefix=make_cache_key)  # Will create keys like "dashboard-user_id"
 def dashboard():
     try:
         user_id = session.get('user_id')
@@ -326,7 +328,16 @@ def dashboard():
 @app.route('/courses')
 @login_required
 def courses():
-    return redirect(url_for('assignments'))
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            return redirect(url_for('login'))
+
+        canvas_service = CanvasService(user_id)
+        courses = canvas_service.get_classes()
+        return render_template('courses.html', courses=courses)
+    except Exception as e:
+        return str(e), 500
 
 @app.route('/study-recommendations')
 def study_recommendations():
@@ -538,7 +549,9 @@ def video_prompt():
     return render_template('video_prompt.html')
 
 @app.route('/grades')
+@app.route('/check-grades')
 @login_required
+@cache.cached(timeout=3600, key_prefix=make_cache_key)  # Will create keys like "check_grades-user_id"
 def check_grades():
     try:
         user_id = session.get('user_id')
@@ -1766,29 +1779,25 @@ def api_summarize_url():
 
 @app.route('/clear-cache', methods=['POST'])
 @login_required
-@csrf.exempt
 def clear_cache():
     try:
-        user_id = session.get('user_id')
-        if not user_id:
-            return jsonify({'error': 'User not logged in'}), 401
-
-        # Get course_id from request if provided
         data = request.get_json()
-        course_id = data.get('course_id')
-
-        # Clear the dashboard cache
-        dashboard_cache_key = f'dashboard-{user_id}'
-        cache.delete(dashboard_cache_key)
+        route = data.get('route', request.referrer)  # Get the route from the request or use referrer
+        user_id = session.get('user_id', '')
         
-        # Clear the specific course page cache if course_id provided
-        if course_id:
-            course_cache_key = f'course-{user_id}-{course_id}'
-            cache.delete(course_cache_key)
+        # Create the specific cache key
+        if 'grades' in route:
+            cache_key = f'check_grades-{user_id}'
+        elif 'dashboard' in route:
+            cache_key = f'dashboard-{user_id}'
+        else:
+            cache_key = f'{route}-{user_id}'
+            
+        # Delete the specific cache
+        cache.delete(cache_key)
         
         return jsonify({'success': True})
     except Exception as e:
-        print(f"Error clearing cache: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':

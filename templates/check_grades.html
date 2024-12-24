@@ -60,9 +60,50 @@
     .grade-c { color: #FFC107; }
     .grade-d { color: #FF9800; }
     .grade-f { color: #F44336; }
+
+    .title-refresh-container {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .refresh-btn {
+        background: none;
+        border: none;
+        color: #666;
+        cursor: pointer;
+        padding: 8px;
+        border-radius: 50%;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .refresh-btn:hover {
+        background-color: #f0f0f0;
+        color: #333;
+    }
+
+    .refresh-btn.spinning i {
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        100% {
+            transform: rotate(360deg);
+        }
+    }
 </style>
 
-<h1 class="page-title">Current Grades</h1>
+<h1 class="page-title">
+    <div class="title-refresh-container">
+        Current Grades
+        <button onclick="refreshData()" class="refresh-btn">
+            <i class="fas fa-sync-alt"></i>
+        </button>
+    </div>
+</h1>
 
 {% if error %}
     <div style="text-align: center; padding: 20px; color: #721c24; background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; margin-bottom: 20px;">
@@ -129,5 +170,43 @@
         </div>
     {% endif %}
 {% endif %}
+
+<script>
+async function refreshData() {
+    const button = document.querySelector('.refresh-btn');
+    button.classList.add('spinning');
+    
+    try {
+        // Clear the grades cache
+        const response = await fetch('/clear-cache', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                grades: true
+            })
+        });
+        
+        if (response.ok) {
+            // Add event listener for before unload to prevent stopping the spin
+            window.addEventListener('beforeunload', function(e) {
+                button.classList.add('spinning');
+            });
+            
+            // Force reload the page without cache
+            window.location.reload(true);
+        } else {
+            throw new Error('Failed to clear cache');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error refreshing data');
+        button.classList.remove('spinning');
+    }
+}
+</script>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 
 {% endblock %}
