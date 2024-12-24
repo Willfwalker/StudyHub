@@ -8,7 +8,12 @@
 
 <!-- Course Header Section -->
 <div class="course-header">
-    <h2>{{ course.name }}</h2>
+    <div class="title-refresh-container">
+        <h2>{{ course.name }}</h2>
+        <button onclick="refreshData()" class="refresh-btn">
+            <i class="fas fa-sync-alt"></i>
+        </button>
+    </div>
     <button onclick="createNotes({{ course.id }})" class="create-notes-btn" style="float: right; padding: 15px 30px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px; font-weight: 500; transition: background-color 0.2s; margin-top: -40px; border: none; cursor: pointer; font-size: 16px;">
         <span class="button-text">Take Notes</span>
         <span class="loading-spinner" style="display: none;">
@@ -17,12 +22,53 @@
     </button>
 </div>
 
-<div class="past-assignments">
+<!-- Current Assignments Section -->
+<div class="current-assignments">
     <div class="assignments-header">
-        <h2>Past Assignments</h2>
-        <div class="current-grade">Current Grade: {{ course.grade|default('N/A') }}</div>
+        <h2>Current Assignments</h2>
     </div>
     <div style="margin-top: 20px;">
+        {% if current_assignments %}
+            <table class="assignments-table">
+                <thead>
+                    <tr>
+                        <th class="name-column">Name</th>
+                        <th class="due-column">Due Date</th>
+                        <th class="status-column">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for assignment in current_assignments %}
+                    <tr style="cursor: pointer" onclick="window.location.href='{{ url_for('assignment_details', course_id=course.id, assignment_id=assignment.id) }}'">
+                        <td>{{ assignment.name }}</td>
+                        <td>{{ assignment.due_at|format_date }}</td>
+                        <td>{{ "Submitted" if assignment.has_submitted_submissions else "Not Submitted" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="no-assignments">
+                <div class="checkmark">✓</div>
+                <p>You're all caught up! No current assignments.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Add margin between sections -->
+<div style="margin: 30px 0;"></div>
+
+<!-- Existing Past Assignments Section -->
+<div class="past-assignments">
+    <div class="assignments-header" onclick="togglePastAssignments()" style="cursor: pointer;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <h2>Past Assignments</h2>
+            <i class="fas fa-chevron-down toggle-icon"></i>
+        </div>
+        <div class="current-grade">Current Grade: {{ course.grade|default('N/A') }}</div>
+    </div>
+    <div id="pastAssignmentsContent" class="past-assignments-content" style="display: none; margin-top: 20px;">
         <table class="assignments-table">
             <thead>
                 <tr>
@@ -125,6 +171,82 @@
 .loading-spinner {
     display: inline-block;
 }
+
+/* Add styles for current assignments */
+.current-assignments {
+    margin-top: 20px;
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+}
+
+.due-column, .status-column {
+    width: 20%;
+}
+
+.no-assignments {
+    text-align: center;
+    padding: 40px 20px;
+    color: #28a745;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.no-assignments .checkmark {
+    font-size: 48px;
+    margin-bottom: 10px;
+}
+
+.no-assignments p {
+    font-size: 18px;
+    margin: 0;
+}
+
+.title-refresh-container {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.refresh-btn {
+    background: none;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 50%;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.refresh-btn:hover {
+    background-color: #f0f0f0;
+    color: #333;
+}
+
+.refresh-btn.spinning i {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.toggle-icon {
+    transition: transform 0.3s ease;
+}
+
+.toggle-icon.rotated {
+    transform: rotate(-180deg);
+}
+
+.past-assignments-content {
+    transition: all 0.3s ease;
+}
 </style>
 
 <script type="module">
@@ -165,5 +287,54 @@ async function createNotes(courseId) {
         loadingSpinner.style.display = 'none';
     }
 }
+
+async function refreshData() {
+    const button = document.querySelector('.refresh-btn');
+    button.classList.add('spinning');
+    
+    try {
+        // Clear the specific course cache using the course ID
+        const response = await fetch('/clear-cache', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                course_id: {{ course.id }}
+            })
+        });
+        
+        if (response.ok) {
+            // Add event listener for before unload to prevent stopping the spin
+            window.addEventListener('beforeunload', function(e) {
+                button.classList.add('spinning');
+            });
+            
+            // Force reload the page without cache
+            window.location.reload(true);
+        } else {
+            throw new Error('Failed to clear cache');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error refreshing data');
+        button.classList.remove('spinning');
+    }
+}
+
+function togglePastAssignments() {
+    const content = document.getElementById('pastAssignmentsContent');
+    const icon = document.querySelector('.toggle-icon');
+    
+    if (content.style.display === 'none') {
+        content.style.display = 'block';
+        icon.classList.add('rotated');
+    } else {
+        content.style.display = 'none';
+        icon.classList.remove('rotated');
+    }
+}
 </script>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 {% endblock %}

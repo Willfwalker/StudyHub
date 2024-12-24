@@ -776,13 +776,13 @@ def get_grade_color(percentage):
 
 @app.route('/course/<int:course_id>')
 @login_required
+@cache.cached(timeout=3600, key_prefix=lambda: f'course-{session.get("user_id", "")}-{request.view_args.get("course_id", "")}')  # Cache for 1 hour with user and course specific keys
 def course_page(course_id):
     try:
         user_id = session.get('user_id')
         if not user_id:
             return redirect(url_for('login'))
 
-        # Initialize Canvas service with user_id
         canvas_service = CanvasService(user_id=user_id)
         
         if not canvas_service.api_key:
@@ -793,6 +793,9 @@ def course_page(course_id):
         if not course:
             return "Course not found", 404
 
+        # Get current assignments
+        current_assignments = canvas_service.get_current_assignments(course_id)
+        
         # Get past assignments
         past_assignments = canvas_service.get_past_assignments(course_id)
         
@@ -803,14 +806,14 @@ def course_page(course_id):
         else:
             course['grade'] = 'N/A'
 
-        # Calculate and format assignment grades as percentages
+        # Calculate and format assignment grades
         for assignment in past_assignments:
             if (assignment.get('score') is not None and 
                 assignment.get('points_possible') is not None and 
                 float(assignment['points_possible']) > 0):
                 try:
                     percentage = (float(assignment['score']) / float(assignment['points_possible'])) * 100
-                    assignment['percentage'] = percentage  # Store the raw percentage
+                    assignment['percentage'] = percentage
                     assignment['grade'] = f"{int(round(percentage))}%"
                 except (ValueError, TypeError):
                     assignment['percentage'] = None
@@ -821,6 +824,7 @@ def course_page(course_id):
 
         return render_template('course_page.html', 
                              course=course,
+                             current_assignments=current_assignments,
                              past_assignments=past_assignments)
 
     except Exception as e:
@@ -1762,17 +1766,25 @@ def api_summarize_url():
 
 @app.route('/clear-cache', methods=['POST'])
 @login_required
+@csrf.exempt
 def clear_cache():
     try:
         user_id = session.get('user_id')
         if not user_id:
             return jsonify({'error': 'User not logged in'}), 401
 
-        # Create the cache key using the same format as in the dashboard route
-        cache_key = f'dashboard-{user_id}'
+        # Get course_id from request if provided
+        data = request.get_json()
+        course_id = data.get('course_id')
+
+        # Clear the dashboard cache
+        dashboard_cache_key = f'dashboard-{user_id}'
+        cache.delete(dashboard_cache_key)
         
-        # Delete the cache
-        cache.delete(cache_key)
+        # Clear the specific course page cache if course_id provided
+        if course_id:
+            course_cache_key = f'course-{user_id}-{course_id}'
+            cache.delete(course_cache_key)
         
         return jsonify({'success': True})
     except Exception as e:
