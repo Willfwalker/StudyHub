@@ -1100,7 +1100,7 @@ def api_register():
                 'error': 'Invalid Google Drive folder link'
             }), 400
 
-        # Store in Firebase Realtime Database first
+        # Store in Firebase Realtime Database
         try:
             db_ref = db.reference('users')
             user_data = {
@@ -1115,7 +1115,7 @@ def api_register():
             # Store the data
             db_ref.child(uid).set(user_data)
             
-            # Now initialize services with stored data
+            # Initialize services
             canvas_service = CanvasService(uid)
             docs_service = DocsService(uid)
             
@@ -1126,13 +1126,13 @@ def api_register():
                 
             class_names = [course['name'] for course in classes]
             
-            # Create folders in Google Drive
-            created_folders = docs_service.create_class_folders(folder_id, class_names)
+            # Create semester-based folders in Google Drive
+            created_folders = docs_service.create_semester_folders(class_names, folder_id)
             
             if not created_folders:
                 return jsonify({
                     'success': False,
-                    'error': 'Failed to create class folders'
+                    'error': 'Failed to create semester folders'
                 }), 500
 
             return jsonify({
@@ -1475,25 +1475,31 @@ def create_notes(course_id):
         if not course:
             return jsonify({'error': 'Course not found'}), 404
 
-        # Get the Notes folder ID for this course from Firebase
-        folders_ref = db.reference(f'users/{user_id}/folders')
-        folders = folders_ref.get()
+        # Get current semester folder structure
+        current_date = datetime.now()
+        semester = 'Spring' if current_date.month < 7 else 'Fall'
+        semester_name = f"{semester} {current_date.year}"
         
+        # Get folder ID from semester structure
+        semester_ref = db.reference(f'users/{user_id}/semesters/{semester_name}/folders')
+        folders = semester_ref.get()
+        
+        if not folders:
+            return jsonify({'error': 'No folders found for current semester'}), 404
+
         # Find the correct folder by matching course name
-        folder_key = None
-        for key, folder_data in folders.items():
+        folder_id = None
+        for folder_data in folders.values():
             if folder_data.get('name') == course['name']:
-                folder_key = key
+                folder_id = folder_data.get('folder_id')
                 break
-                
-        if not folder_key or 'notes_folder_id' not in folders[folder_key]:
-            return jsonify({'error': 'Notes folder not found'}), 404
 
-        notes_folder_id = folders[folder_key]['notes_folder_id']
+        if not folder_id:
+            return jsonify({'error': 'Course folder not found'}), 404
 
-        # Create the notes document in the Notes subfolder
+        # Create the notes document
         doc_name = f"{course['name']} - Notes {datetime.now().strftime('%m/%d/%Y')}"
-        doc_info = docs_service.create_notes_doc(doc_name, notes_folder_id)
+        doc_info = docs_service.create_notes_doc(doc_name, folder_id)
         
         if doc_info and doc_info.get('url'):
             return jsonify({'url': doc_info['url']})
@@ -1518,24 +1524,29 @@ def past_notes():
         if not course_id or not course_name:
             return "Missing course information", 400
 
-        # Get the Notes folder ID for this course from Firebase
-        folders_ref = db.reference(f'users/{user_id}/folders')
-        folders = folders_ref.get()
+        # Get current semester folder structure
+        current_date = datetime.now()
+        semester = 'Spring' if current_date.month < 7 else 'Fall'
+        semester_name = f"{semester} {current_date.year}"
+        
+        # Get folder ID from semester structure
+        semester_ref = db.reference(f'users/{user_id}/semesters/{semester_name}/folders')
+        folders = semester_ref.get()
         
         if not folders:
-            return "No folders found", 404
+            return "No folders found for current semester", 404
 
         # Find the correct folder by matching course name
         folder_url = None
         for folder_data in folders.values():
             if folder_data.get('name') == course_name:
-                notes_folder_id = folder_data.get('notes_folder_id')
-                if notes_folder_id:
-                    folder_url = f"https://drive.google.com/drive/folders/{notes_folder_id}"
+                folder_id = folder_data.get('folder_id')
+                if folder_id:
+                    folder_url = f"https://drive.google.com/drive/folders/{folder_id}"
                 break
 
         if not folder_url:
-            return "Notes folder not found", 404
+            return "Course folder not found", 404
 
         # Return a script that opens the URL in a new tab
         return f"""
@@ -1571,36 +1582,42 @@ def create_quiz_for_course(course_id):
         if not course:
             return "Course not found", 404
 
-        # Get the Notes folder ID from Firebase
-        folders_ref = db.reference(f'users/{user_id}/folders')
-        folders = folders_ref.get()
+        # Get current semester folder structure
+        current_date = datetime.now()
+        semester = 'Spring' if current_date.month < 7 else 'Fall'
+        semester_name = f"{semester} {current_date.year}"
         
-        notes_folder_id = None
+        # Get folder ID from semester structure
+        semester_ref = db.reference(f'users/{user_id}/semesters/{semester_name}/folders')
+        folders = semester_ref.get()
+        
+        if not folders:
+            return "No folders found for current semester", 404
+
+        # Find the correct folder by matching course name
+        folder_id = None
         for folder_data in folders.values():
             if folder_data.get('name') == course['name']:
-                notes_folder_id = folder_data.get('notes_folder_id')
+                folder_id = folder_data.get('folder_id')
                 break
 
-        if not notes_folder_id:
-            return "Notes folder not found", 404
+        if not folder_id:
+            return "Course folder not found", 404
 
         # Get all notes content from the folder
-        notes_content = docs_service.get_folder_documents_content(notes_folder_id)
+        notes_content = docs_service.get_folder_documents_content(folder_id)
         
         if not notes_content:
             return render_template('quiz_maker.html', error="No notes found for this course")
 
-        # Combine all notes content
+        # Rest of the quiz generation code remains the same
         combined_notes = "\n\n".join(notes_content)
-
-        # Generate quiz using AI service
         ai_service = AIService()
         quiz = ai_service.generate_quiz(combined_notes)
 
         if not quiz:
             return render_template('quiz_maker.html', error="Failed to generate quiz")
 
-        # Clean up the quiz content for proper JSON serialization
         quiz['multiple_choice'] = quiz['multiple_choice'].strip()
         quiz['written_response'] = quiz['written_response'].strip()
 
@@ -1618,6 +1635,68 @@ def nl2br(value):
     if not value:
         return value
     return value.replace('\n', '<br>')
+
+@app.route('/take-notes')
+@login_required
+def take_notes():
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            return redirect(url_for('login'))
+
+        course_id = request.args.get('course_id')
+        course_name = request.args.get('course_name')
+        notes_name = request.args.get('notes_name')
+
+        if not all([course_id, course_name, notes_name]):
+            return "Missing required parameters", 400
+
+        # Initialize services
+        canvas_service = CanvasService(user_id)
+        docs_service = DocsService(user_id)
+
+        # Get current semester folder structure
+        current_date = datetime.now()
+        semester = 'Spring' if current_date.month < 7 else 'Fall'
+        semester_name = f"{semester} {current_date.year}"
+        
+        # Get folder ID from semester structure
+        semester_ref = db.reference(f'users/{user_id}/semesters/{semester_name}/folders')
+        folders = semester_ref.get()
+        
+        if not folders:
+            return "No folders found for current semester", 404
+
+        # Find the correct folder by matching course name
+        folder_id = None
+        for folder_data in folders.values():
+            if folder_data.get('name') == course_name:
+                folder_id = folder_data.get('folder_id')
+                break
+
+        if not folder_id:
+            return "Course folder not found", 404
+
+        # Create the notes document
+        doc_info = docs_service.create_notes_doc(notes_name, folder_id)
+        
+        if not doc_info:
+            return "Failed to create notes document", 500
+            
+        if not doc_info.get('url'):
+            return "Document created but URL not found", 500
+
+        # Success - open in new tab and go back
+        return f"""
+        <script>
+            window.open('{doc_info['url']}', '_blank');
+            window.history.back();
+        </script>
+        """
+
+    except Exception as e:
+        print(f"Error creating notes: {str(e)}")
+        return str(e), 500
 
 if __name__ == '__main__':
     app.debug = True  

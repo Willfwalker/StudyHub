@@ -450,9 +450,15 @@ class DocsService:
         try:
             if not self.user_id:
                 return None
-                
-            folders_ref = db.reference(f'users/{self.user_id}/folders')
-            folders = folders_ref.get()
+            
+            # Get current semester
+            current_date = datetime.now()
+            semester = 'Spring' if current_date.month < 7 else 'Fall'
+            semester_name = f"{semester} {current_date.year}"
+            
+            # Look up folder in current semester
+            semester_ref = db.reference(f'users/{self.user_id}/semesters/{semester_name}/folders')
+            folders = semester_ref.get()
             
             if folders:
                 for folder_data in folders.values():
@@ -803,12 +809,7 @@ class DocsService:
             return None
 
     def create_notes_doc(self, doc_name: str, folder_id: str) -> Optional[Dict]:
-        """Create a new Google Doc formatted for notes and move it to specified folder
-        
-        Args:
-            doc_name: Name of the document
-            folder_id: ID of the folder where the document should be saved
-        """
+        """Create a new Google Doc formatted for notes and move it to notes subfolder"""
         try:
             # Create an empty document
             doc_body = {
@@ -817,49 +818,29 @@ class DocsService:
             doc = self.docs_service.documents().create(body=doc_body).execute()
             document_id = doc.get('documentId')
 
-            # Format requests for the document
-            requests = [
-                {
-                    'updateParagraphStyle': {
-                        'range': {
-                            'startIndex': 1,
-                            'endIndex': 2
-                        },
-                        'paragraphStyle': {
-                            'lineSpacing': 200,  # Double spacing
-                        },
-                        'fields': 'lineSpacing'
-                    }
-                },
-                {
-                    'updateTextStyle': {
-                        'range': {
-                            'startIndex': 1,
-                            'endIndex': 2
-                        },
-                        'textStyle': {
-                            'fontSize': {
-                                'magnitude': 12,
-                                'unit': 'PT'
-                            },
-                            'weightedFontFamily': {
-                                'fontFamily': 'Times New Roman'
-                            }
-                        },
-                        'fields': 'fontSize,weightedFontFamily'
-                    }
-                }
-            ]
+            # Get the notes folder ID from Firebase
+            current_date = datetime.now()
+            semester = 'Spring' if current_date.month < 7 else 'Fall'
+            semester_name = f"{semester} {current_date.year}"
+            
+            # Look up the notes folder ID
+            semester_ref = db.reference(f'users/{self.user_id}/semesters/{semester_name}/folders')
+            folders = semester_ref.get()
+            
+            notes_folder_id = None
+            if folders:
+                for folder_data in folders.values():
+                    if folder_data.get('folder_id') == folder_id:
+                        notes_folder_id = folder_data.get('notes_folder_id')
+                        break
 
-            # Execute the formatting requests
-            self.docs_service.documents().batchUpdate(
-                documentId=document_id,
-                body={'requests': requests}
-            ).execute()
+            if not notes_folder_id:
+                print(f"Warning: Notes folder not found, using main folder")
+                notes_folder_id = folder_id
 
-            # Move document to specified folder
-            if not self.move_to_folder(document_id, folder_id):
-                print(f"Warning: Failed to move document to specified folder")
+            # Move document to notes folder
+            if not self.move_to_folder(document_id, notes_folder_id):
+                print(f"Warning: Failed to move document to notes folder")
 
             return {
                 'document_id': document_id,
@@ -901,15 +882,7 @@ class DocsService:
             return None
 
     def create_semester_folders(self, class_names: list, parent_folder_id: str = None) -> bool:
-        """Creates new folders for a new semester's classes.
-        
-        Args:
-            class_names: List of class names for the new semester
-            parent_folder_id: Optional parent folder ID. If not provided, will use user's root folder
-        
-        Returns:
-            bool: True if folders were created successfully, False otherwise
-        """
+        """Creates new folders for a new semester's classes."""
         try:
             if not self.user_id:
                 return False
@@ -970,13 +943,15 @@ class DocsService:
                         fields='id'
                     ).execute()
                     
-                    # Save folder info to Firebase
+                    notes_folder_id = notes_folder.get('id')
+                    
+                    # Save folder info to Firebase with both IDs
                     self._save_semester_folder_info(
                         semester_name=semester_name,
                         class_name=class_name,
                         folder_data={
-                            'main_folder_id': folder_id,
-                            'notes_folder_id': notes_folder.get('id')
+                            'folder_id': folder_id,
+                            'notes_folder_id': notes_folder_id
                         }
                     )
                     
@@ -993,7 +968,7 @@ class DocsService:
             return False
 
     def _save_semester_folder_info(self, semester_name: str, class_name: str, folder_data: dict):
-        """Saves semester folder information to Firebase"""
+        """Saves semester folder information to Firebase with notes subfolder"""
         try:
             if not self.user_id:
                 return False
@@ -1004,10 +979,10 @@ class DocsService:
             # Create a unique key for the folder
             folder_key = class_name.replace('.', '_').replace('/', '_').replace(' ', '_')
             
-            # Store folder information
+            # Store folder information with notes folder ID
             semester_ref.child(folder_key).set({
                 'name': class_name,
-                'main_folder_id': folder_data['main_folder_id'],
+                'folder_id': folder_data['folder_id'],
                 'notes_folder_id': folder_data['notes_folder_id'],
                 'created_at': datetime.now().isoformat()
             })
