@@ -1,0 +1,16 @@
+README.md
+setup.py
+Functions/__init__.py
+Functions/config/Settings.py
+Functions/config/__init__.py
+Services/__init__.py
+Services/ai_service.py
+Services/canvas_service.py
+Services/docs_service.py
+student_hub_functions.egg-info/PKG-INFO
+student_hub_functions.egg-info/SOURCES.txt
+student_hub_functions.egg-info/dependency_links.txt
+student_hub_functions.egg-info/requires.txt
+student_hub_functions.egg-info/top_level.txt
+utils/__init__.py
+utils/credentials.py

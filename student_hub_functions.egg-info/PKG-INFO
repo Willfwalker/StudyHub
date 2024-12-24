@@ -1,0 +1,10 @@
+Metadata-Version: 2.1
+Name: student_hub_functions
+Version: 0.1.0
+Summary: A homework automation tool using AI
+Author: William Walker
+Author-email: iammorechadl@gmail.com
+Requires-Dist: google-generativeai
+Requires-Dist: google-api-python-client
+Requires-Dist: google-auth-httplib2
+Requires-Dist: google-auth-oauthlib
