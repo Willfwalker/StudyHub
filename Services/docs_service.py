@@ -97,7 +97,7 @@ class DocsService:
         """Create new credentials with proper scopes"""
         try:
             flow = InstalledAppFlow.from_client_secrets_file(
-                os.getenv('CREDENTIALS_PATH'), self.SCOPES)
+                os.path.join('.', os.getenv('CREDENTIALS_PATH')), self.SCOPES)
             creds = flow.run_local_server(port=0)
             # Save new credentials
             self._save_credentials_to_firebase(creds)

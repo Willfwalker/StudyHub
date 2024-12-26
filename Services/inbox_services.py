@@ -14,7 +14,7 @@ class InboxService:
 
     def __init__(self):
         # Load .env file from project root
-        env_path = Path(__file__).parent.parent / '.env'
+        env_path = Path('..') / '.env'
         load_dotenv(dotenv_path=env_path)
         
         # Get allowed senders with fallback and filtering
@@ -25,14 +25,14 @@ class InboxService:
         print(f"Loaded allowed senders: {self.allowed_senders}")
         
         # Gmail setup
-        self.gmail_credentials_path = getenv('CREDENTIALS_PATH')
+        self.gmail_credentials_path = os.path.join('.', getenv('CREDENTIALS_PATH', 'credentials.json'))
         print(f"Loaded credentials path: {self.gmail_credentials_path}")
         
         if not self.gmail_credentials_path:
             self.gmail_service = None
             print("Warning: CREDENTIALS_PATH not found in environment variables")
         else:
-            self.token_path = os.path.join(os.path.dirname(self.gmail_credentials_path), 'token.pickle')
+            self.token_path = os.path.join('.', 'token.pickle')
             self.gmail_service = self._get_gmail_service()
 
         # Outlook setup
