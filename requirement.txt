@@ -9,9 +9,16 @@ google-generativeai
 SpeechRecognition
 canvasapi
 python-dotenv
-Flask-WTF
-Flask-Caching
+flask-WTF
+flask-Caching
 flask-mail
 Pillow
 requests
 firebase-admin
+# Additional required packages:
+pathlib
+calendar
+json
+functools
+datetime
+pathlib
