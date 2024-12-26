@@ -19,6 +19,8 @@ class DocsService:
     SCOPES = [
         'https://www.googleapis.com/auth/documents',
         'https://www.googleapis.com/auth/drive.file',
+        'https://www.googleapis.com/auth/drive',
+        'https://www.googleapis.com/auth/drive.metadata.readonly',
         'https://www.googleapis.com/auth/spreadsheets',
         'https://www.googleapis.com/auth/presentations'
     ]
@@ -27,40 +29,15 @@ class DocsService:
         """Initialize the DocsService with user credentials"""
         self.user_id = user_id
         self.creds = None
-        self.token_path = None
         
         if user_id:
-            self.token_path = f'tokens/token_{user_id}.pickle'
+            # Get credentials from Firebase
+            self.creds = self._get_credentials()
             
-            # Check for existing token
-            if os.path.exists(self.token_path):
-                with open(self.token_path, 'rb') as token:
-                    self.creds = pickle.load(token)
-
-            # If no valid credentials, get new ones
-            if not self.creds or not self.creds.valid:
-                if self.creds and self.creds.expired and self.creds.refresh_token:
-                    self.creds.refresh(Request())
-                else:
-                    flow = InstalledAppFlow.from_client_secrets_file(
-                        os.getenv('CREDENTIALS_PATH'),
-                        [
-                            'https://www.googleapis.com/auth/drive.file',
-                            'https://www.googleapis.com/auth/drive',
-                            'https://www.googleapis.com/auth/drive.metadata',
-                            'https://www.googleapis.com/auth/documents'
-                        ]
-                    )
-                    self.creds = flow.run_local_server(port=0)
-
-                # Save the credentials
-                os.makedirs(os.path.dirname(self.token_path), exist_ok=True)
-                with open(self.token_path, 'wb') as token:
-                    pickle.dump(self.creds, token)
-
-            # Build the services
-            self.drive_service = build('drive', 'v3', credentials=self.creds)
-            self.docs_service = build('docs', 'v1', credentials=self.creds)
+            if self.creds:
+                # Build the services
+                self.drive_service = build('drive', 'v3', credentials=self.creds)
+                self.docs_service = build('docs', 'v1', credentials=self.creds)
 
     def _get_credentials(self):
         """Gets valid credentials for the current user from Firebase."""
@@ -71,6 +48,19 @@ class DocsService:
             # Get token data from Firebase
             user_ref = db.reference(f'users/{self.user_id}/google_credentials')
             token_data = user_ref.get()
+
+            if token_data:
+                print("\nStored scopes in Firebase:", token_data.get('scopes'))
+                
+                # Check if we have all required scopes
+                required_scopes = set(self.SCOPES)
+                stored_scopes = set(token_data.get('scopes', []))
+                missing_scopes = required_scopes - stored_scopes
+                
+                if missing_scopes:
+                    print(f"Missing required scopes: {missing_scopes}")
+                    # Force new token creation
+                    return self._create_new_credentials()
 
             creds = None
             if token_data:
@@ -93,22 +83,27 @@ class DocsService:
                         self._save_credentials_to_firebase(creds)
                     except Exception as e:
                         print(f"Error refreshing credentials: {str(e)}")
-                        return None
+                        return self._create_new_credentials()
                 else:
-                    try:
-                        flow = InstalledAppFlow.from_client_secrets_file(
-                            os.getenv('CREDENTIALS_PATH'), self.SCOPES)
-                        creds = flow.run_local_server(port=0)
-                        # Save new credentials
-                        self._save_credentials_to_firebase(creds)
-                    except Exception as e:
-                        print(f"Error creating new credentials: {str(e)}")
-                        return None
+                    return self._create_new_credentials()
 
             return creds
 
         except Exception as e:
-            print(f"Error getting credentials from Firebase: {str(e)}")
+            print(f"Error getting credentials: {str(e)}")
+            return None
+
+    def _create_new_credentials(self):
+        """Create new credentials with proper scopes"""
+        try:
+            flow = InstalledAppFlow.from_client_secrets_file(
+                os.getenv('CREDENTIALS_PATH'), self.SCOPES)
+            creds = flow.run_local_server(port=0)
+            # Save new credentials
+            self._save_credentials_to_firebase(creds)
+            return creds
+        except Exception as e:
+            print(f"Error creating new credentials: {str(e)}")
             return None
 
     def delete_token(self):
@@ -865,81 +860,121 @@ class DocsService:
             return None
 
     def get_folder_documents_content(self, class_name: str) -> Optional[List[str]]:
-        """Get the content of all documents in the Notes subfolder for a given class"""
         try:
+            
             if not self.user_id:
                 return None
             
             # Get credentials from Firebase
             creds = self._get_credentials()
             if not creds:
-                print("Could not get credentials from Firebase")
                 return None
             
             # Build services with Firebase credentials
             self.drive_service = build('drive', 'v3', credentials=creds)
             self.docs_service = build('docs', 'v1', credentials=creds)
+
+            # Get folder IDs
+            folder_ids = self._get_folder_ids(class_name)
+            if not folder_ids:
+                return None
             
-            # Get current semester
+            
+            contents = []
+            for folder_id in folder_ids:
+                try:
+                    # First, verify we can access the folder
+                    try:
+                        folder = self.drive_service.files().get(
+                            fileId=folder_id,
+                            fields="name, mimeType, permissions"
+                        ).execute()
+                    except Exception as e:
+                        continue
+                    
+                    # List all files the user has access to
+                    page_token = None
+                    while True:
+                        # Get all files with detailed information
+                        response = self.drive_service.files().list(
+                            q=f"mimeType='application/vnd.google-apps.document'",
+                            spaces='drive',
+                            fields='nextPageToken, files(id, name, mimeType, parents)',
+                            pageToken=page_token,
+                            pageSize=1000,
+                            orderBy='modifiedTime desc'
+                        ).execute()
+                        
+                        files = response.get('files', [])
+                        print(f"Retrieved {len(files)} files in this batch")
+                        
+                        # Filter files that belong to our folder
+                        matching_files = [
+                            f for f in files 
+                            if 'parents' in f and folder_id in f['parents']
+                        ]
+                        
+                        
+                        # Process matching files
+                        for file in matching_files:
+                            try:
+                                document = self.docs_service.documents().get(
+                                    documentId=file['id']
+                                ).execute()
+                                
+                                content = ''
+                                for element in document.get('body', {}).get('content', []):
+                                    if 'paragraph' in element:
+                                        for para_element in element['paragraph']['elements']:
+                                            if 'textRun' in para_element:
+                                                content += para_element['textRun'].get('content', '')
+                        
+                                if content.strip():
+                                    contents.append(content)
+                                
+                            except Exception as e:
+                                print(f"Error processing document {file.get('name')}: {str(e)}")
+                                continue
+                        
+                        page_token = response.get('nextPageToken')
+                        if not page_token:
+                            break
+                            
+                except Exception as e:
+                    continue
+            
+            if contents:
+                return contents
+                
+            return None
+            
+        except Exception as e:
+            return None
+
+    def _get_folder_ids(self, class_name: str) -> List[str]:
+        """Helper method to get folder IDs from Firebase"""
+        try:
             current_date = datetime.now()
             semester = 'Spring' if current_date.month < 7 else 'Fall'
             semester_name = f"{semester} {current_date.year}"
             
-            # Look up the notes folder ID from Firebase
             semester_ref = db.reference(f'users/{self.user_id}/semesters/{semester_name}/folders')
             folders = semester_ref.get()
             
-            notes_folder_id = None
+            folder_ids = []
             if folders:
-                folder_key = class_name.replace('.', '_').replace('/', '_').replace(' ', '_')
-                folder_data = folders.get(folder_key)
-                if folder_data:
-                    notes_folder_id = folder_data.get('notes_folder_id')
-
-            if not notes_folder_id:
-                print(f"Could not find notes folder for class: {class_name}")
-                return None
-            
-            # Query files in the notes folder
-            files_query = f"'{notes_folder_id}' in parents and mimeType='application/vnd.google-apps.document'"
-            files_result = self.drive_service.files().list(
-                q=files_query,
-                fields="files(id, name, mimeType, modifiedTime)",
-                supportsAllDrives=True,
-                includeItemsFromAllDrives=True,
-                corpora='allDrives',
-                spaces='drive',
-                pageSize=100
-            ).execute()
-            
-            docs = files_result.get('files', [])
-            
-            # Get content from each document
-            contents = []
-            for doc in docs:
-                try:
-                    document = self.docs_service.documents().get(
-                        documentId=doc['id']
-                    ).execute()
+                for folder_data in folders.values():
+                    if folder_data.get('name') == class_name:
+                        if folder_data.get('folder_id'):
+                            folder_ids.append(folder_data.get('folder_id'))
+                        if folder_data.get('notes_folder_id'):
+                            folder_ids.append(folder_data.get('notes_folder_id'))
+                        break
                     
-                    content = ''
-                    for element in document.get('body', {}).get('content', []):
-                        if 'paragraph' in element:
-                            for para_element in element['paragraph']['elements']:
-                                if 'textRun' in para_element:
-                                    content += para_element['textRun'].get('content', '')
-                
-                    contents.append(content)
-                    
-                except Exception as e:
-                    print(f"Error getting content for document {doc['name']}: {str(e)}")
-                    continue
-            
-            return contents
-            
+            return folder_ids
         except Exception as e:
-            print(f"Error getting folder documents: {str(e)}")
-            return None
+            print(f"Error getting folder IDs: {str(e)}")
+            return []
 
     def create_semester_folders(self, class_names: list, parent_folder_id: str = None) -> bool:
         """Creates new folders for a new semester's classes."""

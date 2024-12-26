@@ -1696,36 +1696,54 @@ def quiz_maker():
 @csrf.exempt
 def create_quiz(course_id):
     try:
+        print(f"\n=== Starting quiz creation for course_id: {course_id} ===")
+        
         user_id = session.get('user_id')
         if not user_id:
-            error_response = {"error": "Not logged in"}
-            return jsonify(error_response), 401 if request.method == 'POST' else render_template('error.html', error="Not logged in"), 401
+            print("Error: No user_id in session")
+            if request.method == 'POST':
+                return jsonify({"error": "Not logged in"}), 401
+            return render_template('error.html', error="Not logged in")
+        print(f"User ID: {user_id}")
             
         # Initialize services with user_id
         canvas_service = CanvasService(user_id)
         docs_service = DocsService(user_id)
+        print("Services initialized")
         
         # Get course info
         courses = canvas_service.get_classes()
-        current_course = next((c for c in courses if c['id'] == course_id), None)
+        print(f"Retrieved {len(courses)} courses")
+        current_course = next((c for c in courses if str(c['id']) == str(course_id)), None)
         
         if not current_course:
-            error_response = {"error": "Course not found"}
-            return jsonify(error_response), 404 if request.method == 'POST' else render_template('error.html', error="Course not found"), 404
+            print(f"Course {course_id} not found in user's courses")
+            if request.method == 'POST':
+                return jsonify({"error": "Course not found"}), 404
+            return render_template('error.html', error="Course not found")
+        print(f"Found course: {current_course['name']}")
             
         # Get documents content
+        print(f"Retrieving documents for course: {current_course['name']}")
         documents_content = docs_service.get_folder_documents_content(current_course['name'])
         if not documents_content:
-            error_response = {"error": "No notes found"}
-            return jsonify(error_response), 404 if request.method == 'POST' else render_template('error.html', error="No notes found"), 404
+            print("No documents content found")
+            if request.method == 'POST':
+                return jsonify({"error": "No notes found"}), 404
+            return render_template('error.html', error="No notes found")
+        print(f"Retrieved content from {len(documents_content)} documents")
 
         # Initialize AI service and generate quiz
+        print("Initializing AI service and generating quiz")
         ai_service = AIService()
         quiz = ai_service.generate_quiz(documents_content)
         
         if not quiz:
-            error_response = {"error": "Failed to generate quiz"}
-            return jsonify(error_response), 500 if request.method == 'POST' else render_template('error.html', error="Failed to generate quiz"), 500
+            print("Failed to generate quiz")
+            if request.method == 'POST':
+                return jsonify({"error": "Failed to generate quiz"}), 500
+            return render_template('error.html', error="Failed to generate quiz")
+        print("Quiz generated successfully")
         
         # Store quiz data in session for answer checking
         session['current_quiz'] = quiz
@@ -1733,15 +1751,15 @@ def create_quiz(course_id):
         # Return JSON for POST requests, render template for GET requests
         if request.method == 'POST':
             return jsonify(quiz)
-        else:
-            return render_template('quiz_display.html',
-                               course=current_course,
-                               quiz=quiz)
+        return render_template('quiz_display.html',
+                           course=current_course,
+                           quiz=quiz)
                                 
     except Exception as e:
         print(f"Error in create_quiz: {str(e)}")
-        error_response = {"error": str(e)}
-        return jsonify(error_response), 500 if request.method == 'POST' else render_template('error.html', error=str(e)), 500
+        if request.method == 'POST':
+            return jsonify({"error": str(e)}), 500
+        return render_template('error.html', error=str(e))
 
 @app.template_filter('nl2br')
 def nl2br(value):

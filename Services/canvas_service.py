@@ -466,3 +466,27 @@ class CanvasService:
         except Exception as e:
             print(f"Error syncing assignments to Firebase: {str(e)}")
             return False
+
+    def get_course(self, course_id: int) -> Optional[Dict]:
+        """Get details for a specific course."""
+        endpoint = f"{self.canvas_url}/api/v1/courses/{course_id}"
+        params = {
+            'include[]': ['term', 'teachers']
+        }
+        
+        try:
+            response = requests.get(endpoint, headers=self.get_headers(), params=params)
+            response.raise_for_status()
+            course = response.json()
+            
+            # Add teacher info if available
+            if 'teachers' in course and course['teachers']:
+                course['professor'] = course['teachers'][0]['display_name']
+            else:
+                course['professor'] = 'Not Available'
+            
+            return course
+            
+        except requests.exceptions.RequestException as e:
+            print(f"Error fetching course {course_id}: {e}")
+            return None
