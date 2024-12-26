@@ -1236,8 +1236,119 @@ def clear_image_cache():
 
 @app.route('/calendar')
 @login_required
-def calendar():
-    return render_template('calendar.html')
+def show_calendar():
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            return redirect(url_for('login'))
+
+        # Get current date info
+        today = datetime.now()
+        year = today.year
+        month = today.month
+        month_key = today.strftime('%Y-%m')
+
+        # Check if we need to sync assignments
+        user_ref = db.reference(f'users/{user_id}')
+        last_sync = user_ref.child('last_calendar_sync').get()
+        
+        canvas_service = CanvasService(user_id)
+        
+        # Sync if:
+        # 1. No last sync data
+        # 2. Different month
+        # 3. Last sync was more than 1 hour ago
+        should_sync = True
+        if last_sync:
+            last_sync_time = datetime.fromisoformat(last_sync.get('timestamp'))
+            time_diff = datetime.now() - last_sync_time
+            if (last_sync.get('month') == month_key and 
+                time_diff.total_seconds() < 3600):  # 1 hour
+                should_sync = False
+
+        if should_sync:
+            canvas_service.sync_assignments_to_firebase()
+
+        # Get assignments from Firebase
+        assignments_ref = db.reference(
+            f'users/{user_id}/calendar_assignments/{month_key}'
+        )
+        stored_assignments = assignments_ref.get() or {}
+
+        # Convert stored assignments to the format needed by the template
+        assignment_dict = {}
+        for date_str, assignments in stored_assignments.items():
+            date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+            assignment_dict[date_obj] = assignments
+
+        # Create calendar data structure
+        calendar_data = []
+        month_range = calendar.monthrange(year, month)
+        prev_month_days = (datetime(year, month, 1).weekday() + 1) % 7
+        
+        # Get previous month's days if needed
+        if prev_month_days > 0:
+            if month == 1:
+                prev_month = 12
+                prev_year = year - 1
+            else:
+                prev_month = month - 1
+                prev_year = year
+            prev_month_range = calendar.monthrange(prev_year, prev_month)[1]
+            prev_month_dates = range(prev_month_range - prev_month_days + 1, 
+                                   prev_month_range + 1)
+        
+        # Build calendar weeks
+        current_week = []
+        
+        # Add previous month's days
+        for i in range(prev_month_days):
+            date = datetime(prev_year, prev_month, prev_month_dates[i])
+            current_week.append({
+                'day': prev_month_dates[i],
+                'other_month': True,
+                'is_today': False,
+                'assignments': assignment_dict.get(date.date(), [])
+            })
+        
+        # Add current month's days
+        for day in range(1, month_range[1] + 1):
+            date = datetime(year, month, day)
+            current_week.append({
+                'day': day,
+                'other_month': False,
+                'is_today': date.date() == today.date(),
+                'assignments': assignment_dict.get(date.date(), [])
+            })
+            
+            if len(current_week) == 7:
+                calendar_data.append(current_week)
+                current_week = []
+        
+        # Add next month's days if needed
+        if current_week:
+            next_month_day = 1
+            while len(current_week) < 7:
+                date = datetime(year + (month//12), 
+                              ((month % 12) + 1), 
+                              next_month_day)
+                current_week.append({
+                    'day': next_month_day,
+                    'other_month': True,
+                    'is_today': False,
+                    'assignments': assignment_dict.get(date.date(), [])
+                })
+                next_month_day += 1
+            calendar_data.append(current_week)
+
+        return render_template('calendar.html',
+                             calendar_data=calendar_data,
+                             month_name=calendar.month_name[month],
+                             year=year)
+
+    except Exception as e:
+        print(f"Error in show_calendar: {str(e)}")
+        return render_template('error.html', error=str(e))
 
 @app.route('/profile')
 @login_required
@@ -1587,7 +1698,8 @@ def create_quiz(course_id):
     try:
         user_id = session.get('user_id')
         if not user_id:
-            return jsonify({"error": "Not logged in"}), 401 if request.method == 'POST' else "Not logged in", 401
+            error_response = {"error": "Not logged in"}
+            return jsonify(error_response), 401 if request.method == 'POST' else render_template('error.html', error="Not logged in"), 401
             
         # Initialize services with user_id
         canvas_service = CanvasService(user_id)
@@ -1598,24 +1710,22 @@ def create_quiz(course_id):
         current_course = next((c for c in courses if c['id'] == course_id), None)
         
         if not current_course:
-            return jsonify({"error": "Course not found"}), 404 if request.method == 'POST' else "Course not found", 404
-            
-        # Get folder ID
-        folder_id = docs_service._get_folder_id(current_course['name'])
-        if not folder_id:
-            return jsonify({"error": "Folder not found"}), 404 if request.method == 'POST' else "Folder not found", 404
+            error_response = {"error": "Course not found"}
+            return jsonify(error_response), 404 if request.method == 'POST' else render_template('error.html', error="Course not found"), 404
             
         # Get documents content
-        documents_content = docs_service.get_folder_documents_content(folder_id)
+        documents_content = docs_service.get_folder_documents_content(current_course['name'])
         if not documents_content:
-            return jsonify({"error": "No notes found"}), 404 if request.method == 'POST' else "No notes found", 404
+            error_response = {"error": "No notes found"}
+            return jsonify(error_response), 404 if request.method == 'POST' else render_template('error.html', error="No notes found"), 404
 
         # Initialize AI service and generate quiz
         ai_service = AIService()
         quiz = ai_service.generate_quiz(documents_content)
         
         if not quiz:
-            return jsonify({"error": "Failed to generate quiz"}), 500 if request.method == 'POST' else "Failed to generate quiz", 500
+            error_response = {"error": "Failed to generate quiz"}
+            return jsonify(error_response), 500 if request.method == 'POST' else render_template('error.html', error="Failed to generate quiz"), 500
         
         # Store quiz data in session for answer checking
         session['current_quiz'] = quiz
@@ -1630,7 +1740,8 @@ def create_quiz(course_id):
                                 
     except Exception as e:
         print(f"Error in create_quiz: {str(e)}")
-        return jsonify({"error": str(e)}), 500 if request.method == 'POST' else str(e), 500
+        error_response = {"error": str(e)}
+        return jsonify(error_response), 500 if request.method == 'POST' else render_template('error.html', error=str(e)), 500
 
 @app.template_filter('nl2br')
 def nl2br(value):
@@ -1796,6 +1907,31 @@ def clear_cache():
             'error': str(e),
             'message': 'Failed to clear cache'
         }), 500
+
+@app.route('/api/sync-calendar', methods=['POST'])
+@login_required
+def sync_calendar():
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({'error': 'Not logged in'}), 401
+
+        canvas_service = CanvasService(user_id)
+        success = canvas_service.sync_assignments_to_firebase()
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Calendar synced successfully'
+            })
+        else:
+            return jsonify({
+                'error': 'Failed to sync calendar'
+            }), 500
+            
+    except Exception as e:
+        print(f"Error syncing calendar: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.debug = True  

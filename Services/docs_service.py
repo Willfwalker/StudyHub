@@ -864,33 +864,43 @@ class DocsService:
             print(f"Error creating notes document: {e}")
             return None
 
-    def get_folder_documents_content(self, folder_id):
-        """Get the content of all documents in the Notes subfolder"""
+    def get_folder_documents_content(self, class_name: str) -> Optional[List[str]]:
+        """Get the content of all documents in the Notes subfolder for a given class"""
         try:
-            if not self.creds or not self.creds.valid:
-                if self.creds and self.creds.expired and self.creds.refresh_token:
-                    self.creds.refresh(Request())
-                else:
-                    return None
+            if not self.user_id:
+                return None
             
-            # Find Notes folder
-            notes_query = f"'{folder_id}' in parents and name='Notes'"
-            notes_result = self.drive_service.files().list(
-                q=notes_query,
-                fields="files(id, name)",
-                supportsAllDrives=True,
-                includeItemsFromAllDrives=True,
-                corpora='allDrives',
-                spaces='drive'
-            ).execute()
+            # Get credentials from Firebase
+            creds = self._get_credentials()
+            if not creds:
+                print("Could not get credentials from Firebase")
+                return None
             
-            notes_folders = notes_result.get('files', [])
-            if not notes_folders:
-                return []
+            # Build services with Firebase credentials
+            self.drive_service = build('drive', 'v3', credentials=creds)
+            self.docs_service = build('docs', 'v1', credentials=creds)
             
-            notes_folder_id = notes_folders[0]['id']
+            # Get current semester
+            current_date = datetime.now()
+            semester = 'Spring' if current_date.month < 7 else 'Fall'
+            semester_name = f"{semester} {current_date.year}"
             
-            # Query files
+            # Look up the notes folder ID from Firebase
+            semester_ref = db.reference(f'users/{self.user_id}/semesters/{semester_name}/folders')
+            folders = semester_ref.get()
+            
+            notes_folder_id = None
+            if folders:
+                folder_key = class_name.replace('.', '_').replace('/', '_').replace(' ', '_')
+                folder_data = folders.get(folder_key)
+                if folder_data:
+                    notes_folder_id = folder_data.get('notes_folder_id')
+
+            if not notes_folder_id:
+                print(f"Could not find notes folder for class: {class_name}")
+                return None
+            
+            # Query files in the notes folder
             files_query = f"'{notes_folder_id}' in parents and mimeType='application/vnd.google-apps.document'"
             files_result = self.drive_service.files().list(
                 q=files_query,
@@ -921,12 +931,14 @@ class DocsService:
                 
                     contents.append(content)
                     
-                except Exception:
+                except Exception as e:
+                    print(f"Error getting content for document {doc['name']}: {str(e)}")
                     continue
             
             return contents
             
-        except Exception:
+        except Exception as e:
+            print(f"Error getting folder documents: {str(e)}")
             return None
 
     def create_semester_folders(self, class_names: list, parent_folder_id: str = None) -> bool:

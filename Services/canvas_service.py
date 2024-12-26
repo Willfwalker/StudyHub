@@ -415,3 +415,54 @@ class CanvasService:
                 'success': False,
                 'error': str(e)
             }
+
+    def sync_assignments_to_firebase(self):
+        """Sync assignments to Firebase for the current month"""
+        try:
+            if not self.user_id:
+                print("No user ID provided")
+                return False
+
+            # Get all assignments
+            assignments = self.get_all_assignments()
+            
+            # Filter and format assignments for current month
+            current_date = datetime.now()
+            current_month_assignments = {}
+            
+            for assignment in assignments:
+                if assignment.get('due_at'):
+                    due_date = datetime.strptime(assignment['due_at'], '%Y-%m-%dT%H:%M:%SZ')
+                    
+                    # Only process assignments for current month
+                    if (due_date.year == current_date.year and 
+                        due_date.month == current_date.month):
+                        
+                        date_key = due_date.strftime('%Y-%m-%d')
+                        if date_key not in current_month_assignments:
+                            current_month_assignments[date_key] = []
+                            
+                        current_month_assignments[date_key].append({
+                            'name': assignment.get('name'),
+                            'course_name': assignment.get('course_name', ''),
+                            'due_at': assignment.get('due_at'),
+                            'id': assignment.get('id'),
+                            'course_id': assignment.get('course_id')
+                        })
+
+            # Store in Firebase
+            month_key = current_date.strftime('%Y-%m')
+            db_ref = db.reference(f'users/{self.user_id}/calendar_assignments/{month_key}')
+            db_ref.set(current_month_assignments)
+            
+            # Store last sync timestamp
+            db.reference(f'users/{self.user_id}/last_calendar_sync').set({
+                'timestamp': datetime.now().isoformat(),
+                'month': month_key
+            })
+            
+            return True
+            
+        except Exception as e:
+            print(f"Error syncing assignments to Firebase: {str(e)}")
+            return False
