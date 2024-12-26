@@ -1,0 +1,17 @@
+flask
+gunicorn
+numpy
+pandas
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib
+google-generativeai
+SpeechRecognition
+canvasapi
+python-dotenv
+Flask-WTF
+Flask-Caching
+flask-mail
+Pillow
+requests
+firebase-admin
