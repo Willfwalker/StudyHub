@@ -229,7 +229,25 @@ class DocsService:
     def update_document_apa(self, document_id: str, name: str, professor: str, class_name: str) -> Optional[Dict]:
         """Updates a Google Doc with APA formatting."""
         try:
-            # Create header
+            # First, set up 1-inch margins
+            margin_requests = [{
+                'updateDocumentStyle': {
+                    'documentStyle': {
+                        'marginTop': {'magnitude': 72, 'unit': 'PT'},
+                        'marginBottom': {'magnitude': 72, 'unit': 'PT'},
+                        'marginLeft': {'magnitude': 72, 'unit': 'PT'},
+                        'marginRight': {'magnitude': 72, 'unit': 'PT'}
+                    },
+                    'fields': 'marginTop,marginBottom,marginLeft,marginRight'
+                }
+            }]
+            
+            self.docs_service.documents().batchUpdate(
+                documentId=document_id,
+                body={'requests': margin_requests}
+            ).execute()
+
+            # Create header for page number
             header_requests = [{'createHeader': {'type': 'DEFAULT'}}]
             self.docs_service.documents().batchUpdate(
                 documentId=document_id,
@@ -237,35 +255,81 @@ class DocsService:
             ).execute()
 
             # Get header ID
-            doc = self.docs_service.documents().get(
-                documentId=document_id).execute()
+            doc = self.docs_service.documents().get(documentId=document_id).execute()
             header_id = doc.get('headers', {}).popitem()[0]
 
             # Get current date
             current_date = datetime.now().strftime('%B %d, %Y')
 
-            # Update header and content with proper APA formatting
+            # Calculate content with proper spacing
+            content = (
+                f"{class_name}\n"  # Title at the top
+                f"{name}\n"  # Author name
+                f"{professor}\n"  # Professor
+                f"{class_name}\n"  # Course name
+                f"{current_date}"  # Date
+            )
+            
             requests = [
-                # Header content (Running head: TITLE) - Left aligned
+                # Add page number to header (right-aligned)
                 {
                     'insertText': {
                         'location': {'segmentId': header_id, 'index': 0},
-                        'text': f"Running head: {class_name.upper()}\n"
+                        'text': "1"
                     }
                 },
-                # Main content - Center aligned title block
+                # Right align page number
+                {
+                    'updateParagraphStyle': {
+                        'range': {'segmentId': header_id, 'startIndex': 0, 'endIndex': 1},
+                        'paragraphStyle': {'alignment': 'END'},
+                        'fields': 'alignment'
+                    }
+                },
+                # Main content
                 {
                     'insertText': {
                         'location': {'index': 1},
-                        'text': f"{class_name}\n\n{name}\n{professor}\n{current_date}\n\n"
+                        'text': content
                     }
                 },
-                # Center align the title block
+                # Center align all content
                 {
                     'updateParagraphStyle': {
-                        'range': {'startIndex': 1, 'endIndex': len(f"{class_name}\n\n{name}\n{professor}\n{current_date}\n\n")},
-                        'paragraphStyle': {'alignment': 'CENTER'},
-                        'fields': 'alignment'
+                        'range': {'startIndex': 1, 'endIndex': len(content) + 1},
+                        'paragraphStyle': {
+                            'alignment': 'CENTER',
+                            'lineSpacing': 240,  # Double spacing
+                            'spaceAbove': {'magnitude': 0, 'unit': 'PT'},  # Remove extra space above paragraphs
+                            'spaceBelow': {'magnitude': 0, 'unit': 'PT'}   # Remove extra space below paragraphs
+                        },
+                        'fields': 'alignment,lineSpacing,spaceAbove,spaceBelow'
+                    }
+                },
+                # Apply Times New Roman, 12pt to entire document
+                {
+                    'updateTextStyle': {
+                        'range': {'startIndex': 1, 'endIndex': len(content) + 1},
+                        'textStyle': {
+                            'fontSize': {'magnitude': 12, 'unit': 'PT'},
+                            'weightedFontFamily': {'fontFamily': 'Times New Roman'}
+                        },
+                        'fields': 'fontSize,weightedFontFamily'
+                    }
+                },
+                # Apply Times New Roman, 12pt to header
+                {
+                    'updateTextStyle': {
+                        'range': {
+                            'segmentId': header_id,
+                            'startIndex': 0,
+                            'endIndex': 1
+                        },
+                        'textStyle': {
+                            'fontSize': {'magnitude': 12, 'unit': 'PT'},
+                            'weightedFontFamily': {'fontFamily': 'Times New Roman'}
+                        },
+                        'fields': 'fontSize,weightedFontFamily'
                     }
                 }
             ]

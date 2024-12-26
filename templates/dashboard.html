@@ -69,14 +69,14 @@
 </section>
 
 <!-- Bottom sections -->
-<div class="bottom-sections">
-    <!-- Calendar Section -->
+<!-- <div class="bottom-sections">
+    Calendar Section
     <section class="calendar-section">
         <h2>Calendar</h2>
         <div id="calendar"></div>
         <div class="calendar-preview">
-            <!-- Calendar content -->
-            {% for event in upcoming_events %}
+            Calendar content
+            {% raw %}{% for event in upcoming_events %}
             <div class="calendar-event">
                 <div class="event-date">{{ event.date|format_date }}</div>
                 <div class="event-details">
@@ -84,24 +84,24 @@
                     <p>{{ event.description }}</p>
                 </div>
             </div>
-            {% endfor %}
+            {% endfor %}{% endraw %}
         </div>
     </section>
 
-    <!-- Todo List Section -->
+    Todo List Section
     <section class="todo-section">
         <h2>Todo List</h2>
         <div class="todo-list">
-            {% for task in todo_items %}
+            {% raw %}{% for task in todo_items %}
             <div class="todo-item">
                 <input type="checkbox" id="task-{{ loop.index }}" {% if task.completed %}checked{% endif %}>
                 <label for="task-{{ loop.index }}">{{ task.title }}</label>
                 <span class="due-date">{{ task.due_date|format_date }}</span>
             </div>
-            {% endfor %}
+            {% endfor %}{% endraw %}
         </div>
     </section>
-</div>
+</div> -->
 
 <style>
     .dashboard-header {
