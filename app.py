@@ -25,7 +25,7 @@ import time
 load_dotenv()
 
 app = Flask(__name__, static_folder='static', static_url_path='/static')
-app.debug = True
+app.debug = False if os.getenv('FLASK_ENV') == 'production' else True
 app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'your-secret-key-here')
 csrf = CSRFProtect(app)
 cache = Cache(app, config={
