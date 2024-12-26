@@ -2122,7 +2122,3 @@ def delete_flashcard(card_id):
 @login_required
 def review_flashcards():
     return render_template('review_flashcards.html')
-
-if __name__ == '__main__':
-    app.debug = True  
-    app.run(debug=True)  

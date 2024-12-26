@@ -1,6 +1,6 @@
+from flask import Flask
 from app import app
 
-# Remove the if __name__ == '__main__': block from app.py
-# and add this handler
-def handler(request, context):
-    return app(request, context)
+def handler(request):
+    """Handle requests from Vercel serverless function"""
+    return app
