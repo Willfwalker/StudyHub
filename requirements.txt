@@ -16,7 +16,6 @@ Pillow
 requests
 firebase-admin
 pathlib
-calendar
 json
 functools
 datetime
