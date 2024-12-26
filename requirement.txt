@@ -15,7 +15,6 @@ flask-mail
 Pillow
 requests
 firebase-admin
-# Additional required packages:
 pathlib
 calendar
 json
