@@ -148,18 +148,34 @@ class DocsService:
             current_date = datetime.now().strftime('%d %B %Y')
             last_name = name.split()[-1]
 
-            # Update header and content with proper formatting
+            # Calculate the end index for the main content
+            main_content = f"{name}\n\n{professor}\n\n{class_name}\n\n{current_date}\n\n"
+            main_content_end_index = len(main_content) + 1  # +1 for the initial index
+
             requests = [
-                # Header content (Last Name #) - Right aligned
+                # Header content (Last Name and page number) - Right aligned
                 {
                     'insertText': {
                         'location': {'segmentId': header_id, 'index': 0},
-                        'text': f"{last_name} #\n"
+                        'text': f"{last_name} "
+                    }
+                },
+                # Insert page number field
+                {
+                    'insertText': {
+                        'location': {'segmentId': header_id, 'index': len(last_name) + 1},
+                        'text': '1'  # This will be automatically updated by Google Docs
+                    }
+                },
+                {
+                    'insertText': {
+                        'location': {'segmentId': header_id, 'index': len(last_name) + 2},
+                        'text': "\n"
                     }
                 },
                 {
                     'updateParagraphStyle': {
-                        'range': {'segmentId': header_id, 'startIndex': 0, 'endIndex': len(last_name) + 2},
+                        'range': {'segmentId': header_id, 'startIndex': 0, 'endIndex': len(last_name) + 3},
                         'paragraphStyle': {'alignment': 'END'},
                         'fields': 'alignment'
                     }
@@ -168,7 +184,33 @@ class DocsService:
                 {
                     'insertText': {
                         'location': {'index': 1},
-                        'text': f"{name}\n\n{professor}\n\n{class_name}\n\n{current_date}\n\n"
+                        'text': main_content
+                    }
+                },
+                # Apply Times New Roman, 12pt to entire document
+                {
+                    'updateTextStyle': {
+                        'range': {'startIndex': 1, 'endIndex': main_content_end_index},
+                        'textStyle': {
+                            'fontSize': {'magnitude': 12, 'unit': 'PT'},
+                            'weightedFontFamily': {'fontFamily': 'Times New Roman'}
+                        },
+                        'fields': 'fontSize,weightedFontFamily'
+                    }
+                },
+                # Apply Times New Roman, 12pt to header
+                {
+                    'updateTextStyle': {
+                        'range': {
+                            'segmentId': header_id,
+                            'startIndex': 0,
+                            'endIndex': len(last_name) + 3
+                        },
+                        'textStyle': {
+                            'fontSize': {'magnitude': 12, 'unit': 'PT'},
+                            'weightedFontFamily': {'fontFamily': 'Times New Roman'}
+                        },
+                        'fields': 'fontSize,weightedFontFamily'
                     }
                 }
             ]
@@ -656,7 +698,7 @@ class DocsService:
             return None
 
     def create_spreadsheet(self, assignment_data: dict) -> Optional[Dict]:
-        """Creates a Google Sheets document for the assignment."""
+        """Creates a simple Google Sheets document for the assignment."""
         try:
             # Build the sheets service
             sheets_service = build('sheets', 'v4', credentials=self.creds)
@@ -665,18 +707,7 @@ class DocsService:
             spreadsheet_body = {
                 'properties': {
                     'title': assignment_data['name']
-                },
-                'sheets': [
-                    {
-                        'properties': {
-                            'title': 'Sheet1',
-                            'gridProperties': {
-                                'rowCount': 1000,
-                                'columnCount': 26
-                            }
-                        }
-                    }
-                ]
+                }
             }
             
             # Create the spreadsheet
@@ -685,42 +716,6 @@ class DocsService:
             ).execute()
             
             spreadsheet_id = spreadsheet.get('spreadsheetId')
-            
-            # Add header information
-            header_data = [
-                [assignment_data.get('course_name', '')],
-                [assignment_data.get('student_name', '')],
-                [datetime.now().strftime('%B %d, %Y')],
-                ['']  # Blank row after header
-            ]
-            
-            # Update the spreadsheet with header information
-            sheets_service.spreadsheets().values().update(
-                spreadsheetId=spreadsheet_id,
-                range='A1:A4',
-                valueInputOption='RAW',
-                body={'values': header_data}
-            ).execute()
-            
-            # Format header
-            requests = [
-                {
-                    'repeatCell': {
-                        'range': {'startRowIndex': 0, 'endRowIndex': 3},
-                        'cell': {
-                            'userEnteredFormat': {
-                                'textFormat': {'bold': True, 'fontSize': 12}
-                            }
-                        },
-                        'fields': 'userEnteredFormat.textFormat'
-                    }
-                }
-            ]
-            
-            sheets_service.spreadsheets().batchUpdate(
-                spreadsheetId=spreadsheet_id,
-                body={'requests': requests}
-            ).execute()
 
             # Move spreadsheet to correct class folder
             folder_id = self._get_folder_id(assignment_data.get('course_name', ''))
@@ -739,7 +734,7 @@ class DocsService:
             return None
 
     def create_presentation(self, assignment_data: dict) -> Optional[Dict]:
-        """Creates a Google Slides presentation for the assignment."""
+        """Creates a simple Google Slides presentation for the assignment."""
         try:
             # Build the slides service
             slides_service = build('slides', 'v1', credentials=self.creds)
@@ -751,54 +746,6 @@ class DocsService:
             
             presentation_id = presentation.get('presentationId')
             
-            # Create title slide with proper text elements
-            requests = [
-                {
-                    'createSlide': {
-                        'objectId': 'titleSlide',
-                        'slideLayoutReference': {
-                            'predefinedLayout': 'TITLE_AND_SUBTITLE'
-                        },
-                        'placeholderIdMappings': [
-                            {
-                                'layoutPlaceholder': {
-                                    'type': 'TITLE',
-                                    'index': 0
-                                },
-                                'objectId': 'titleTextBox'
-                            },
-                            {
-                                'layoutPlaceholder': {
-                                    'type': 'SUBTITLE',
-                                    'index': 1
-                                },
-                                'objectId': 'subtitleTextBox'
-                            }
-                        ]
-                    }
-                },
-                # Insert title text
-                {
-                    'insertText': {
-                        'objectId': 'titleTextBox',
-                        'text': assignment_data['name']
-                    }
-                },
-                # Insert subtitle text
-                {
-                    'insertText': {
-                        'objectId': 'subtitleTextBox',
-                        'text': f"{assignment_data.get('student_name', '')}\n{assignment_data.get('course_name', '')}\n{datetime.now().strftime('%B %d, %Y')}"
-                    }
-                }
-            ]
-            
-            # Execute the requests
-            slides_service.presentations().batchUpdate(
-                presentationId=presentation_id,
-                body={'requests': requests}
-            ).execute()
-
             # Move presentation to correct class folder
             folder_id = self._get_folder_id(assignment_data.get('course_name', ''))
             if folder_id:
