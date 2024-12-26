@@ -2,6 +2,12 @@
 
 {% block content %}
 <div class="flashcards-container">
+    <div class="header-navigation">
+        <a href="{{ url_for('flashcard_maker') }}" class="back-button">
+            <i class="fas fa-arrow-left"></i> Back to Courses
+        </a>
+    </div>
+
     <div id="initialLoadingOverlay" class="loading-overlay">
         <div class="loading-content">
             <div class="loading-spinner"></div>
@@ -14,6 +20,9 @@
             <i class="fas fa-arrow-left"></i>
         </button>
         <span class="card-counter">Card <span id="currentCard">1</span> of <span id="totalCards">{{ flashcards|length }}</span></span>
+        <button class="nav-button save-button" onclick="saveCurrentCard()">
+            <i class="fas fa-bookmark"></i>
+        </button>
         <button class="nav-button next-button" onclick="nextCard()">
             <i class="fas fa-arrow-right"></i>
         </button>
@@ -205,6 +214,43 @@
         0% { transform: rotate(0deg); }
         100% { transform: rotate(360deg); }
     }
+
+    .save-button {
+        background: #4CAF50 !important;  /* Green color for save button */
+    }
+
+    .save-button:hover {
+        background: #45a049 !important;
+    }
+
+    .save-button.saved {
+        background: #666 !important;
+        cursor: default;
+    }
+
+    .header-navigation {
+        margin-bottom: 24px;
+    }
+
+    .back-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 16px;
+        background: #000;
+        color: white;
+        text-decoration: none;
+        border-radius: 6px;
+        transition: background-color 0.2s;
+    }
+
+    .back-button:hover {
+        background: #333;
+    }
+
+    .back-button i {
+        font-size: 0.9em;
+    }
 </style>
 
 <script>
@@ -255,5 +301,61 @@
     window.addEventListener('load', function() {
         document.getElementById('initialLoadingOverlay').style.display = 'none';
     });
+
+    function saveCurrentCard() {
+        // Get the current card
+        const currentCard = document.querySelector(`.flashcard[data-index="${currentIndex}"]`);
+        if (!currentCard) {
+            console.error('Current card not found');
+            return;
+        }
+
+        // Get the front and back text
+        const front = currentCard.querySelector('.flashcard-front p').textContent;
+        const back = currentCard.querySelector('.flashcard-back p').textContent;
+        
+        console.log('Saving card:', { front, back }); // Debug log
+
+        // Send to server
+        fetch('/api/save-flashcard', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}' // Add CSRF token
+            },
+            body: JSON.stringify({
+                front: front,
+                back: back,
+                course_id: '{{ course.id }}',
+                course_name: '{{ course.name }}'
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                // Visual feedback
+                const saveButton = document.querySelector('.save-button');
+                saveButton.classList.add('saved');
+                saveButton.innerHTML = '<i class="fas fa-check"></i>';
+                
+                // Reset after 2 seconds
+                setTimeout(() => {
+                    saveButton.classList.remove('saved');
+                    saveButton.innerHTML = '<i class="fas fa-bookmark"></i>';
+                }, 2000);
+            } else {
+                throw new Error(data.error || 'Failed to save flashcard');
+            }
+        })
+        .catch(error => {
+            console.error('Error saving flashcard:', error);
+            alert('Error saving flashcard: ' + error.message);
+        });
+    }
 </script>
 {% endblock %}

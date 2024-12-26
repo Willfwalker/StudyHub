@@ -2018,6 +2018,111 @@ def create_flashcards(course_id):
         print(f"Error creating flashcards: {str(e)}")
         return str(e), 500
 
+@app.route('/api/save-flashcard', methods=['POST'])
+@login_required
+@csrf.exempt
+def save_flashcard():
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({'error': 'Not logged in'}), 401
+
+        data = request.json
+        front = data.get('front')
+        back = data.get('back')
+        course_id = data.get('course_id')
+        course_name = data.get('course_name')
+
+        if not all([front, back, course_id, course_name]):
+            return jsonify({'error': 'Missing required fields'}), 400
+
+        # Create a reference to the user's saved flashcards
+        flashcards_ref = db.reference(f'users/{user_id}/saved_flashcards')
+        
+        # Create a new flashcard entry
+        new_flashcard = {
+            'front': front,
+            'back': back,
+            'course_id': course_id,
+            'course_name': course_name,
+            'created_at': str(datetime.now())
+        }
+        
+        # Push the new flashcard to the database
+        flashcards_ref.push(new_flashcard)
+
+        return jsonify({
+            'success': True,
+            'message': 'Flashcard saved successfully'
+        })
+
+    except Exception as e:
+        print(f"Error saving flashcard: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/saved-flashcards')
+@login_required
+def saved_flashcards():
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            return redirect(url_for('login'))
+
+        # Get saved flashcards from Firebase
+        flashcards_ref = db.reference(f'users/{user_id}/saved_flashcards')
+        saved_cards = flashcards_ref.get()
+        
+        # Convert the Firebase data to a list and add the key as id
+        flashcards = []
+        if saved_cards:
+            for card_id, card_data in saved_cards.items():
+                card_data['id'] = card_id  # Add the Firebase key as id
+                flashcards.append(card_data)
+            
+            # Sort by created_at date (newest first)
+            flashcards.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+
+        return render_template('saved_flashcards.html', flashcards=flashcards or [])
+        
+    except Exception as e:
+        print(f"Error loading saved flashcards: {str(e)}")
+        return str(e), 500
+
+@app.route('/api/delete-flashcard/<card_id>', methods=['DELETE'])
+@login_required
+@csrf.exempt  # Add CSRF exemption
+def delete_flashcard(card_id):
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({'error': 'Not logged in'}), 401
+
+        # Add debug logging
+        print(f"Attempting to delete flashcard: {card_id} for user: {user_id}")
+
+        # Delete the flashcard from Firebase
+        flashcard_ref = db.reference(f'users/{user_id}/saved_flashcards/{card_id}')
+        
+        # Verify the flashcard exists before deleting
+        flashcard = flashcard_ref.get()
+        if not flashcard:
+            print(f"Flashcard not found: {card_id}")
+            return jsonify({'error': 'Flashcard not found'}), 404
+            
+        flashcard_ref.delete()
+        print(f"Successfully deleted flashcard: {card_id}")
+
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        print(f"Error deleting flashcard: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/review-flashcards')
+@login_required
+def review_flashcards():
+    return render_template('review_flashcards.html')
+
 if __name__ == '__main__':
     app.debug = True  
     app.run(debug=True)  

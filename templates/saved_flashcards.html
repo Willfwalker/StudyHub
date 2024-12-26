@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="saved-flashcards-container">
+    <div class="header-container">
+        <h1>Saved Flashcards</h1>
+        <button class="review-btn" onclick="location.href='/review-flashcards'">
+            <i class="fas fa-play"></i>
+            Review Flashcards
+        </button>
+    </div>
+    
+    {% if not flashcards %}
+    <div class="no-cards-message">
+        <i class="fas fa-bookmark"></i>
+        <p>No saved flashcards yet</p>
+    </div>
+    {% else %}
+    <div class="flashcards-grid">
+        {% for card in flashcards %}
+        <div class="flashcard" data-id="{{ card.id }}">
+            <div class="flashcard-inner">
+                <div class="flashcard-front">
+                    <div class="card-content">
+                        <h3>Question:</h3>
+                        <p>{{ card.front }}</p>
+                    </div>
+                </div>
+                <div class="flashcard-back">
+                    <div class="card-content">
+                        <h3>Answer:</h3>
+                        <p>{{ card.back }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer">
+                <span class="course-name">{{ card.course_name }}</span>
+                <button class="delete-btn" onclick="deleteCard('{{ card.id }}')">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+
+<style>
+    .saved-flashcards-container {
+        max-width: 1200px;
+        margin: 40px auto;
+        padding: 20px;
+    }
+
+    h1 {
+        margin-bottom: 32px;
+        color: #333;
+    }
+
+    .no-cards-message {
+        text-align: center;
+        padding: 40px;
+        color: #666;
+    }
+
+    .no-cards-message i {
+        font-size: 48px;
+        margin-bottom: 16px;
+        opacity: 0.5;
+    }
+
+    .flashcards-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 24px;
+    }
+
+    .flashcard {
+        height: 200px;
+        perspective: 1000px;
+        cursor: pointer;
+    }
+
+    .flashcard-inner {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        text-align: center;
+        transition: transform 0.8s;
+        transform-style: preserve-3d;
+    }
+
+    .flashcard:hover .flashcard-inner {
+        transform: rotateY(180deg);
+    }
+
+    .flashcard-front, .flashcard-back {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        backface-visibility: hidden;
+        padding: 20px;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .flashcard-back {
+        transform: rotateY(180deg);
+        background: #f8f9fa;
+    }
+
+    .card-content {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    .card-content h3 {
+        color: #666;
+        margin-bottom: 12px;
+        font-size: 0.9em;
+    }
+
+    .card-content p {
+        font-size: 1.1em;
+        line-height: 1.4;
+        color: #333;
+    }
+
+    .card-footer {
+        margin-top: 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0 4px;
+    }
+
+    .course-name {
+        font-size: 0.9em;
+        color: #666;
+    }
+
+    .delete-btn {
+        background: none;
+        border: none;
+        color: #dc3545;
+        cursor: pointer;
+        padding: 4px 8px;
+        opacity: 0.7;
+        transition: opacity 0.2s;
+    }
+
+    .delete-btn:hover {
+        opacity: 1;
+    }
+
+    .header-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 32px;
+    }
+
+    .header-container h1 {
+        margin-bottom: 0;  /* Override the previous margin */
+    }
+
+    .review-btn {
+        background-color: #28a745;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 10px 20px;
+        font-size: 1em;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: background-color 0.2s;
+    }
+
+    .review-btn:hover {
+        background-color: #218838;
+    }
+</style>
+
+<script>
+    function deleteCard(cardId) {
+        if (confirm('Are you sure you want to delete this flashcard?')) {
+            fetch(`/api/delete-flashcard/${cardId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Remove the card from the DOM
+                    document.querySelector(`[data-id="${cardId}"]`).remove();
+                    
+                    // If no cards left, show the no cards message
+                    if (document.querySelectorAll('.flashcard').length === 0) {
+                        location.reload();
+                    }
+                } else {
+                    alert('Error deleting flashcard');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error deleting flashcard');
+            });
+        }
+    }
+</script>
+{% endblock %}
+

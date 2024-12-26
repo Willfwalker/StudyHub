@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="review-container">
+    <div class="header-navigation">
+        <a href="{{ url_for('saved_flashcards') }}" class="back-button">
+            <i class="fas fa-arrow-left"></i> Back to Saved Cards
+        </a>
+        <div class="progress-info">
+            <span id="cardProgress">Card 1 of 0</span>
+        </div>
+    </div>
+
+    <div class="flashcard-container">
+        <div class="flashcard" onclick="toggleCard()">
+            <div class="flashcard-inner">
+                <div class="flashcard-front">
+                    <div class="card-content">
+                        <h3>Question:</h3>
+                        <p id="cardFront"></p>
+                    </div>
+                </div>
+                <div class="flashcard-back">
+                    <div class="card-content">
+                        <h3>Answer:</h3>
+                        <p id="cardBack"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="navigation-controls">
+        <button class="nav-button" onclick="previousCard()">
+            <i class="fas fa-arrow-left"></i>
+        </button>
+        <button class="nav-button" onclick="toggleCard()">
+            <i class="fas fa-sync-alt"></i>
+        </button>
+        <button class="nav-button" onclick="nextCard()">
+            <i class="fas fa-arrow-right"></i>
+        </button>
+    </div>
+</div>
+
+<style>
+    .review-container {
+        max-width: 800px;
+        margin: 40px auto;
+        padding: 20px;
+    }
+
+    .header-navigation {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 32px;
+    }
+
+    .back-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 16px;
+        background: #000;
+        color: white;
+        text-decoration: none;
+        border-radius: 6px;
+        transition: background-color 0.2s;
+    }
+
+    .back-button:hover {
+        background: #333;
+    }
+
+    .progress-info {
+        color: #666;
+        font-size: 1.1em;
+    }
+
+    .flashcard-container {
+        perspective: 1000px;
+        height: 400px;
+        margin-bottom: 32px;
+    }
+
+    .flashcard {
+        width: 100%;
+        height: 100%;
+        position: relative;
+        cursor: pointer;
+    }
+
+    .flashcard-inner {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        text-align: center;
+        transition: transform 0.8s;
+        transform-style: preserve-3d;
+    }
+
+    .flashcard.flipped .flashcard-inner {
+        transform: rotateY(180deg);
+    }
+
+    .flashcard-front, .flashcard-back {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        backface-visibility: hidden;
+        padding: 40px;
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+    }
+
+    .flashcard-back {
+        transform: rotateY(180deg);
+    }
+
+    .navigation-controls {
+        display: flex;
+        justify-content: center;
+        gap: 24px;
+    }
+
+    .nav-button {
+        background: #000;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+    }
+
+    .nav-button:hover {
+        transform: scale(1.1);
+        background: #333;
+    }
+</style>
+
+<script>
+    let currentIndex = 0;
+    let flashcards = [];
+
+    // Load flashcards from session storage
+    window.addEventListener('load', function() {
+        const savedCards = sessionStorage.getItem('reviewFlashcards');
+        if (savedCards) {
+            flashcards = JSON.parse(savedCards);
+            updateCard();
+        }
+    });
+
+    function updateCard() {
+        const card = flashcards[currentIndex];
+        document.getElementById('cardFront').textContent = card.front;
+        document.getElementById('cardBack').textContent = card.back;
+        document.getElementById('cardProgress').textContent = `Card ${currentIndex + 1} of ${flashcards.length}`;
+    }
+
+    function nextCard() {
+        if (currentIndex < flashcards.length - 1) {
+            currentIndex++;
+            updateCard();
+            document.querySelector('.flashcard').classList.remove('flipped');
+        }
+    }
+
+    function previousCard() {
+        if (currentIndex > 0) {
+            currentIndex--;
+            updateCard();
+            document.querySelector('.flashcard').classList.remove('flipped');
+        }
+    }
+
+    function toggleCard() {
+        document.querySelector('.flashcard').classList.toggle('flipped');
+    }
+
+    // Add keyboard navigation
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight') nextCard();
+        if (e.key === 'ArrowLeft') previousCard();
+        if (e.key === ' ') toggleCard();
+    });
+</script>
+{% endblock %} 
