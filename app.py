@@ -20,6 +20,7 @@ from pathlib import Path
 from functools import lru_cache
 from flask_mail import Mail, Message
 from os import getenv
+import time
 
 load_dotenv()
 
@@ -1950,6 +1951,72 @@ def sync_calendar():
     except Exception as e:
         print(f"Error syncing calendar: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+@app.route('/flashcards')
+@login_required
+def flashcard_maker():
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            return redirect(url_for('login'))
+
+        # Initialize Canvas service with user_id
+        canvas_service = CanvasService(user_id=user_id)
+        
+        # Get courses
+        courses = canvas_service.get_classes()
+        
+        return render_template('flashcard_maker.html', courses=courses)
+                             
+    except Exception as e:
+        print(f"Error in flashcard maker route: {str(e)}")
+        return str(e), 500
+
+@app.route('/create-flashcards/<int:course_id>')
+@login_required
+def create_flashcards(course_id):
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            return redirect(url_for('login'))
+
+        # Get the requested number of flashcards
+        card_count = int(request.args.get('count', 10))
+        
+        # Initialize services
+        canvas_service = CanvasService(user_id)
+        docs_service = DocsService(user_id)
+        ai_service = AIService()
+        
+        # Get course info
+        courses = canvas_service.get_classes()
+        current_course = next((c for c in courses if str(c['id']) == str(course_id)), None)
+        
+        if not current_course:
+            return "Course not found", 404
+            
+        # Get documents content
+        documents_content = docs_service.get_folder_documents_content(current_course['name'])
+        if not documents_content:
+            return "No notes found for this course", 404
+
+        # Generate flashcards with a small artificial delay to ensure loading state is visible
+        time.sleep(0.5)  # Add a small delay to ensure loading state is visible
+        flashcards = ai_service.generate_flashcards(documents_content)
+        
+        if not flashcards:
+            return "Failed to generate flashcards", 500
+
+        # Limit to requested number of cards
+        flashcards = flashcards[:card_count]
+        
+        return render_template('flashcards_display.html', 
+                             flashcards=flashcards,
+                             course=current_course)
+                             
+    except Exception as e:
+        print(f"Error creating flashcards: {str(e)}")
+        return str(e), 500
 
 if __name__ == '__main__':
     app.debug = True  

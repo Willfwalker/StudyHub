@@ -338,6 +338,70 @@ class AIService:
             print(f"Error generating quiz: {str(e)}")
             return None
 
+    def generate_flashcards(self, documents_content: List[str]) -> Optional[List[dict]]:
+        """Generate flashcards from the provided documents content."""
+        try:
+            if not documents_content:
+                return None
+            
+            # Combine all documents content
+            combined_content = "\n\n".join(documents_content)
+            
+            # Generate flashcards using AI with improved prompting
+            flashcard_prompt = f"""Based on the following course notes, create 10 study flashcards.
+            Each flashcard should focus on key concepts, definitions, or important facts from the material.
+
+            Guidelines for creating flashcards:
+            1. Front side should be a clear question or key term
+            2. Back side should provide a direct, accurate answer or definition
+            3. Focus on the most important concepts from the notes
+            4. Ensure questions and answers are factually correct
+            5. Keep both sides concise but complete
+            6. Use proper terminology from the course material
+
+            Format each flashcard exactly as:
+            FRONT: [A specific question or key term from the notes]
+            BACK: [Clear, accurate answer or definition]
+
+            Course Notes:
+            {combined_content}
+
+            Remember to create flashcards that would genuinely help a student study this material."""
+            
+            response = self.model.generate_content(flashcard_prompt)
+            if not response or not response.text:
+                return None
+            
+            # Parse the flashcards with improved validation
+            flashcards = []
+            parts = response.text.strip().split('\n\n')
+            
+            for part in parts:
+                lines = part.split('\n')
+                if len(lines) >= 2:
+                    front = lines[0].replace('FRONT:', '').strip().replace('*', '').replace('**', '')
+                    back = lines[1].replace('BACK:', '').strip().replace('*', '').replace('**', '')
+                    
+                    # Validate flashcard content
+                    if (front and back and 
+                        len(front) > 3 and len(back) > 3 and  # Ensure minimum content length
+                        front.lower() != back.lower()):  # Ensure front and back are different
+                        flashcards.append({
+                            'front': front,
+                            'back': back
+                        })
+            
+            # If we didn't get enough valid flashcards, try again with remaining count
+            if len(flashcards) < 5:  # Minimum acceptable number of flashcards
+                print("Not enough valid flashcards generated, retrying...")
+                return None
+            
+            return flashcards
+            
+        except Exception as e:
+            print(f"Error generating flashcards: {str(e)}")
+            return None
+
     def find_learning_resources(self, topic: str) -> Optional[List[dict]]:
         """Find diverse learning resources on a given topic."""
         try:
