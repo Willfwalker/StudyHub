@@ -1,5 +1,4 @@
 flask
-numpy
 gunicorn
 google-api-python-client
 google-auth-httplib2
@@ -14,4 +13,5 @@ flask-mail
 Pillow
 requests
 firebase-admin
+numpy
 pandas
