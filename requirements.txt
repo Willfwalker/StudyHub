@@ -4,7 +4,7 @@ google-api-python-client
 google-auth-httplib2
 google-auth-oauthlib
 google-generativeai
-speech_recognition
+SpeechRecognition
 canvasapi
 python-dotenv
 flask-wtf
@@ -14,3 +14,5 @@ Pillow
 requestsPillow
 Flask-WTF
 Flask-Caching
+requests
+firebase-admin
