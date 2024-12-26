@@ -11,8 +11,5 @@ flask-wtf
 flask-caching
 flask-mail
 Pillow
-requestsPillow
-Flask-WTF
-Flask-Caching
 requests
 firebase-admin
