@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 import json
 from pathlib import Path
 from firebase_admin import db
+from config.settings import GOOGLE_CREDENTIALS_JSON
 
 class DocsService:
     SCOPES = [
@@ -45,6 +46,9 @@ class DocsService:
             return None
 
         try:
+            # Load credentials from settings string
+            credentials_dict = json.loads(GOOGLE_CREDENTIALS_JSON)
+            
             # Get token data from Firebase
             user_ref = db.reference(f'users/{self.user_id}/google_credentials')
             token_data = user_ref.get()
@@ -69,8 +73,8 @@ class DocsService:
                     token=token_data.get('token'),
                     refresh_token=token_data.get('refresh_token'),
                     token_uri=token_data.get('token_uri'),
-                    client_id=token_data.get('client_id'),
-                    client_secret=token_data.get('client_secret'),
+                    client_id=credentials_dict['installed']['client_id'],     # Use from settings
+                    client_secret=credentials_dict['installed']['client_secret'],  # Use from settings
                     scopes=token_data.get('scopes')
                 )
 
