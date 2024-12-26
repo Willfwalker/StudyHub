@@ -48,34 +48,28 @@ CLASS_IMAGES = {
 
 # Initialize Firebase with all required configurations
 try:
-    # Get credentials path from environment variable
-    cred_path = os.getenv('FIREBASE_CREDENTIALS_PATH')
+    # Use environment variables for Firebase credentials
+    firebase_cred = {
+        "type": "service_account",
+        "project_id": os.getenv('FIREBASE_PROJECT_ID'),
+        "private_key_id": os.getenv('FIREBASE_PRIVATE_KEY_ID'),
+        "private_key": os.getenv('FIREBASE_PRIVATE_KEY').replace('\\n', '\n'),
+        "client_email": os.getenv('FIREBASE_CLIENT_EMAIL'),
+        "client_id": os.getenv('FIREBASE_CLIENT_ID'),
+        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+        "token_uri": "https://oauth2.googleapis.com/token",
+        "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+        "client_x509_cert_url": os.getenv('FIREBASE_CLIENT_CERT_URL')
+    }
     
-    # Debug: Print the contents of the credentials file (BE CAREFUL with sensitive info)
-    try:
-        with open(cred_path, 'r') as f:
-            cred_content = f.read()
-            print(f"Credential file length: {len(cred_content)} characters")
-            print(f"Credential file starts with: {cred_content[:50]}...")  # Only print start of file
-    except Exception as file_error:
-        print(f"Error reading credentials file: {str(file_error)}")
-    
-    cred = credentials.Certificate(cred_path)
+    cred = credentials.Certificate(firebase_cred)
     firebase_app = initialize_app(cred, {
-        'databaseURL': 'https://student-hub-28ea1-default-rtdb.firebaseio.com/'
+        'databaseURL': os.getenv('FIREBASE_DATABASE_URL')
     })
     print("Firebase initialized successfully")
     
-    # Test the database connection immediately
-    test_ref = db.reference('test')
-    test_ref.set({'test': 'connection successful'})
-    print("Database connection test successful")
-    
 except Exception as e:
     print(f"Firebase initialization error: {str(e)}")
-    print(f"Error type: {type(e).__name__}")
-    if hasattr(e, 'args'):
-        print(f"Error args: {e.args}")
 
 # Test the database connection
 def test_db_connection():
@@ -2122,3 +2116,11 @@ def delete_flashcard(card_id):
 @login_required
 def review_flashcards():
     return render_template('review_flashcards.html')
+
+@app.route('/')
+def index():
+    try:
+        return render_template('index.html')
+    except Exception as e:
+        print(f"Error rendering index: {str(e)}")
+        return str(e), 500
