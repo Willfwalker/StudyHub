@@ -13,3 +13,5 @@ flask-mail
 Pillow
 requests
 firebase-admin
+pandas
+numpy
