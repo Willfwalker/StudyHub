@@ -46,28 +46,14 @@ CLASS_IMAGES = {
     "Belhaven Basics": "belhaven.jpg"
 }
 
-# Initialize Firebase with all required configurations
+# Initialize Firebase with credentials from environment variable
 try:
-    # Use environment variables for Firebase credentials
-    firebase_cred = {
-        "type": "service_account",
-        "project_id": os.getenv('FIREBASE_PROJECT_ID'),
-        "private_key_id": os.getenv('FIREBASE_PRIVATE_KEY_ID'),
-        "private_key": os.getenv('FIREBASE_PRIVATE_KEY').replace('\\n', '\n'),
-        "client_email": os.getenv('FIREBASE_CLIENT_EMAIL'),
-        "client_id": os.getenv('FIREBASE_CLIENT_ID'),
-        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-        "token_uri": "https://oauth2.googleapis.com/token",
-        "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-        "client_x509_cert_url": os.getenv('FIREBASE_CLIENT_CERT_URL')
-    }
-    
-    cred = credentials.Certificate(firebase_cred)
-    firebase_app = initialize_app(cred, {
-        'databaseURL': os.getenv('FIREBASE_DATABASE_URL')
+    firebase_cred_dict = json.loads(os.getenv('FIREBASE_CREDENTIALS_JSON'))
+    cred = credentials.Certificate(firebase_cred_dict)
+    firebase_admin.initialize_app(cred, {
+        'databaseURL': 'https://student-hub-28ea1-default-rtdb.firebaseio.com/'
     })
     print("Firebase initialized successfully")
-    
 except Exception as e:
     print(f"Firebase initialization error: {str(e)}")
 
@@ -79,9 +65,6 @@ def test_db_connection():
         print("Database connection successful")
     except Exception as e:
         print(f"Database connection error: {str(e)}")
-
-# Call this function when your app starts
-test_db_connection()
 
 # Email configuration
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
@@ -2124,3 +2107,6 @@ def index():
     except Exception as e:
         print(f"Error rendering index: {str(e)}")
         return str(e), 500
+
+if __name__ == '__main__':
+    app.run(debug=True)

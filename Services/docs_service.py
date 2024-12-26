@@ -14,7 +14,8 @@ from dotenv import load_dotenv
 import json
 from pathlib import Path
 from firebase_admin import db
-from config.settings import GOOGLE_CREDENTIALS_JSON
+
+load_dotenv()
 
 class DocsService:
     SCOPES = [
@@ -100,8 +101,14 @@ class DocsService:
     def _create_new_credentials(self):
         """Create new credentials with proper scopes"""
         try:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                os.path.join('.', os.getenv('CREDENTIALS_PATH')), self.SCOPES)
+            # Use credentials from environment variable instead of settings
+            google_creds = os.getenv('GOOGLE_CREDENTIALS_JSON')
+            if not google_creds:
+                print("Error: GOOGLE_CREDENTIALS_JSON not found in environment variables")
+                return None
+            
+            flow = InstalledAppFlow.from_client_config(
+                json.loads(google_creds), self.SCOPES)
             creds = flow.run_local_server(port=0)
             # Save new credentials
             self._save_credentials_to_firebase(creds)
