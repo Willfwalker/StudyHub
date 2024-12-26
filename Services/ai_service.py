@@ -258,80 +258,84 @@ class AIService:
             print(f"Error creating video search prompt: {e}")
             return None
     
-    def generate_quiz(self, text):
-        """
-        Generate a quiz with multiple choice and written response questions from input text.
-        
-        Args:
-            text (str): The text content to generate questions from
-            
-        Returns:
-            dict: Dictionary containing multiple choice and written response questions
-        """
+    def generate_quiz(self, documents_content: List[str]) -> dict:
+        """Generate a quiz from the provided documents content."""
         try:
-            if not text or not isinstance(text, str):
-                print("Invalid input text")
+            if not documents_content:
                 return None
-                
-            # Clean input text
-            text = text.strip()
             
-            # Prompt for multiple choice questions
-            mc_prompt = f"""Given this text:
-            {text}
-
-            Create 6 multiple choice questions to test understanding of the key concepts.
-            For each question:
-            - Include 4 answer choices labeled A, B, C, D
-            - Do not mark the correct answer
-            - Make questions progressively more challenging
-            - Focus on important concepts, not minor details
+            # Combine all documents content
+            combined_content = "\n\n".join(documents_content)
             
+            # Generate multiple choice questions
+            mc_prompt = f"""Based on the following notes, create 5 multiple choice questions.
             Format each question as:
-            Q: [question text]
-            A) [option]
-            B) [option]
-            C) [option] 
-            D) [option]
-            """
+            Q: [Question]
+            A) [Option A]
+            B) [Option B]
+            C) [Option C]
+            D) [Option D]
+            CORRECT: [Correct letter]
 
-            # Prompt for written response questions
-            wr_prompt = f"""Given this text:
-            {text}
-
-            Create 4 written response questions that:
-            - Test deeper understanding and critical thinking
-            - Require explanation or analysis
-            - Cannot be answered with just memorized facts
-            - Build on core concepts from the text
+            Notes:
+            {combined_content}"""
             
-            Format as:
-            Q1: [question]
-            Q2: [question]
-            etc."""
-
-            try:
-                # Generate multiple choice questions
-                mc_response = self.model.generate_content(mc_prompt)
-                mc_questions = mc_response.text.strip()
-
-                # Generate written response questions  
-                wr_response = self.model.generate_content(wr_prompt)
-                wr_questions = wr_response.text.strip()
-
-                quiz = {
-                    "multiple_choice": mc_questions,
-                    "written_response": wr_questions
-                }
-
-                return quiz
-
-            except AttributeError as e:
-                print(f"Error accessing response attributes: {e}")
+            mc_response = self.model.generate_content(mc_prompt)
+            if not mc_response or not mc_response.text:
                 return None
+            
+            # Split the response into questions and answers
+            mc_parts = mc_response.text.strip().split('\n\n')
+            mc_questions = []
+            mc_answers = []
+            
+            for part in mc_parts:
+                lines = part.split('\n')
+                if len(lines) >= 6:  # Question + 4 options + correct answer
+                    # Clean up the question and options by removing asterisks
+                    cleaned_lines = [line.replace('*', '').replace('**', '') for line in lines[:5]]
+                    mc_questions.append('\n'.join(cleaned_lines))  # Question and options
+                    mc_answers.append(lines[5].replace('CORRECT:', '').strip())
+            
+            # Generate written response questions
+            wr_prompt = f"""Based on the following notes, create 3 short answer questions 
+            that test understanding of key concepts.
+            Format as:
+            Q: [Question]
+            A: [Expected answer key points]
 
+            Notes:
+            {combined_content}"""
+            
+            wr_response = self.model.generate_content(wr_prompt)
+            if not wr_response or not wr_response.text:
+                return None
+            
+            # Split written response into questions and answers
+            wr_parts = wr_response.text.strip().split('\n\n')
+            wr_questions = []
+            wr_answers = []
+            
+            for part in wr_parts:
+                if 'Q:' in part and 'A:' in part:
+                    q_part = part.split('A:')[0].replace('Q:', '').strip().replace('*', '').replace('**', '')
+                    a_part = part.split('A:')[1].strip().replace('*', '').replace('**', '')
+                    wr_questions.append(q_part)
+                    wr_answers.append(a_part)
+            
+            return {
+                'multiple_choice': {
+                    'questions': mc_questions,
+                    'answers': mc_answers
+                },
+                'written_response': {
+                    'questions': wr_questions,
+                    'answers': wr_answers
+                }
+            }
+            
         except Exception as e:
-            print(f"Error generating quiz: {e}")
+            print(f"Error generating quiz: {str(e)}")
             return None
 
     def find_learning_resources(self, topic: str) -> Optional[List[dict]]:

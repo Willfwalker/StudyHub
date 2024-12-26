@@ -24,26 +24,43 @@ class DocsService:
     ]
     
     def __init__(self, user_id=None):
-        load_dotenv()
-        
-        # Get credentials path from environment variable
-        self.credentials_path = os.getenv('GOOGLE_CREDENTIALS_PATH', 
-            os.path.join(os.getcwd(), 'credentials.json'))
-        
-        # Debug print
-        print(f"Looking for credentials at: {self.credentials_path}")
-        
-        if not os.path.exists(self.credentials_path):
-            raise ValueError(f"Credentials file not found at: {self.credentials_path}")
-        
+        """Initialize the DocsService with user credentials"""
         self.user_id = user_id
-        self.creds = self._get_credentials()
-        if self.creds:
-            self.docs_service = build('docs', 'v1', credentials=self.creds)
+        self.creds = None
+        self.token_path = None
+        
+        if user_id:
+            self.token_path = f'tokens/token_{user_id}.pickle'
+            
+            # Check for existing token
+            if os.path.exists(self.token_path):
+                with open(self.token_path, 'rb') as token:
+                    self.creds = pickle.load(token)
+
+            # If no valid credentials, get new ones
+            if not self.creds or not self.creds.valid:
+                if self.creds and self.creds.expired and self.creds.refresh_token:
+                    self.creds.refresh(Request())
+                else:
+                    flow = InstalledAppFlow.from_client_secrets_file(
+                        os.getenv('CREDENTIALS_PATH'),
+                        [
+                            'https://www.googleapis.com/auth/drive.file',
+                            'https://www.googleapis.com/auth/drive',
+                            'https://www.googleapis.com/auth/drive.metadata',
+                            'https://www.googleapis.com/auth/documents'
+                        ]
+                    )
+                    self.creds = flow.run_local_server(port=0)
+
+                # Save the credentials
+                os.makedirs(os.path.dirname(self.token_path), exist_ok=True)
+                with open(self.token_path, 'wb') as token:
+                    pickle.dump(self.creds, token)
+
+            # Build the services
             self.drive_service = build('drive', 'v3', credentials=self.creds)
-        else:
-            self.docs_service = None
-            self.drive_service = None
+            self.docs_service = build('docs', 'v1', credentials=self.creds)
 
     def _get_token_path(self):
         """Get the token file path for the specific user"""
@@ -853,32 +870,68 @@ class DocsService:
             return None
 
     def get_folder_documents_content(self, folder_id):
-        """Get the content of all documents in a folder"""
+        """Get the content of all documents in the Notes subfolder"""
         try:
-            # List all files in the folder
-            results = self.drive_service.files().list(
-                q=f"'{folder_id}' in parents and mimeType='application/vnd.google-apps.document'",
-                fields="files(id, name)"
+            if not self.creds or not self.creds.valid:
+                if self.creds and self.creds.expired and self.creds.refresh_token:
+                    self.creds.refresh(Request())
+                else:
+                    return None
+            
+            # Find Notes folder
+            notes_query = f"'{folder_id}' in parents and name='Notes'"
+            notes_result = self.drive_service.files().list(
+                q=notes_query,
+                fields="files(id, name)",
+                supportsAllDrives=True,
+                includeItemsFromAllDrives=True,
+                corpora='allDrives',
+                spaces='drive'
             ).execute()
             
-            files = results.get('files', [])
+            notes_folders = notes_result.get('files', [])
+            if not notes_folders:
+                return []
+            
+            notes_folder_id = notes_folders[0]['id']
+            
+            # Query files
+            files_query = f"'{notes_folder_id}' in parents and mimeType='application/vnd.google-apps.document'"
+            files_result = self.drive_service.files().list(
+                q=files_query,
+                fields="files(id, name, mimeType, modifiedTime)",
+                supportsAllDrives=True,
+                includeItemsFromAllDrives=True,
+                corpora='allDrives',
+                spaces='drive',
+                pageSize=100
+            ).execute()
+            
+            docs = files_result.get('files', [])
             
             # Get content from each document
             contents = []
-            for file in files:
-                doc = self.docs_service.documents().get(documentId=file['id']).execute()
-                content = ''
-                for element in doc.get('body', {}).get('content', []):
-                    if 'paragraph' in element:
-                        for para_element in element['paragraph']['elements']:
-                            if 'textRun' in para_element:
-                                content += para_element['textRun'].get('content', '')
-                contents.append(content)
+            for doc in docs:
+                try:
+                    document = self.docs_service.documents().get(
+                        documentId=doc['id']
+                    ).execute()
+                    
+                    content = ''
+                    for element in document.get('body', {}).get('content', []):
+                        if 'paragraph' in element:
+                            for para_element in element['paragraph']['elements']:
+                                if 'textRun' in para_element:
+                                    content += para_element['textRun'].get('content', '')
+                
+                    contents.append(content)
+                    
+                except Exception:
+                    continue
             
             return contents
-
-        except Exception as e:
-            print(f"Error getting folder documents: {str(e)}")
+            
+        except Exception:
             return None
 
     def create_semester_folders(self, class_names: list, parent_folder_id: str = None) -> bool:

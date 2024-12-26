@@ -1580,69 +1580,57 @@ def past_notes():
 def quiz_maker():
     return render_template('quiz_maker.html')
 
-@app.route('/create-quiz/<int:course_id>')
+@app.route('/create-quiz/<int:course_id>', methods=['GET', 'POST'])
 @login_required
-def create_quiz_for_course(course_id):
+@csrf.exempt
+def create_quiz(course_id):
     try:
         user_id = session.get('user_id')
         if not user_id:
-            return redirect(url_for('login'))
-
-        # Get course info
+            return jsonify({"error": "Not logged in"}), 401 if request.method == 'POST' else "Not logged in", 401
+            
+        # Initialize services with user_id
         canvas_service = CanvasService(user_id)
         docs_service = DocsService(user_id)
         
-        # Get course details
-        course = next((c for c in canvas_service.get_classes() if c['id'] == course_id), None)
-        if not course:
-            return "Course not found", 404
-
-        # Get current semester folder structure
-        current_date = datetime.now()
-        semester = 'Spring' if current_date.month < 7 else 'Fall'
-        semester_name = f"{semester} {current_date.year}"
+        # Get course info
+        courses = canvas_service.get_classes()
+        current_course = next((c for c in courses if c['id'] == course_id), None)
         
-        # Get folder ID from semester structure
-        semester_ref = db.reference(f'users/{user_id}/semesters/{semester_name}/folders')
-        folders = semester_ref.get()
-        
-        if not folders:
-            return "No folders found for current semester", 404
-
-        # Find the correct folder by matching course name
-        folder_id = None
-        for folder_data in folders.values():
-            if folder_data.get('name') == course['name']:
-                folder_id = folder_data.get('folder_id')
-                break
-
+        if not current_course:
+            return jsonify({"error": "Course not found"}), 404 if request.method == 'POST' else "Course not found", 404
+            
+        # Get folder ID
+        folder_id = docs_service._get_folder_id(current_course['name'])
         if not folder_id:
-            return "Course folder not found", 404
+            return jsonify({"error": "Folder not found"}), 404 if request.method == 'POST' else "Folder not found", 404
+            
+        # Get documents content
+        documents_content = docs_service.get_folder_documents_content(folder_id)
+        if not documents_content:
+            return jsonify({"error": "No notes found"}), 404 if request.method == 'POST' else "No notes found", 404
 
-        # Get all notes content from the folder
-        notes_content = docs_service.get_folder_documents_content(folder_id)
-        
-        if not notes_content:
-            return render_template('quiz_maker.html', error="No notes found for this course")
-
-        # Rest of the quiz generation code remains the same
-        combined_notes = "\n\n".join(notes_content)
+        # Initialize AI service and generate quiz
         ai_service = AIService()
-        quiz = ai_service.generate_quiz(combined_notes)
-
+        quiz = ai_service.generate_quiz(documents_content)
+        
         if not quiz:
-            return render_template('quiz_maker.html', error="Failed to generate quiz")
-
-        quiz['multiple_choice'] = quiz['multiple_choice'].strip()
-        quiz['written_response'] = quiz['written_response'].strip()
-
-        return render_template('quiz_display.html', 
-                             course=course,
-                             quiz=quiz)
-
+            return jsonify({"error": "Failed to generate quiz"}), 500 if request.method == 'POST' else "Failed to generate quiz", 500
+        
+        # Store quiz data in session for answer checking
+        session['current_quiz'] = quiz
+        
+        # Return JSON for POST requests, render template for GET requests
+        if request.method == 'POST':
+            return jsonify(quiz)
+        else:
+            return render_template('quiz_display.html',
+                               course=current_course,
+                               quiz=quiz)
+                                
     except Exception as e:
-        print(f"Error creating quiz: {str(e)}")
-        return str(e), 500
+        print(f"Error in create_quiz: {str(e)}")
+        return jsonify({"error": str(e)}), 500 if request.method == 'POST' else str(e), 500
 
 @app.template_filter('nl2br')
 def nl2br(value):

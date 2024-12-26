@@ -17,8 +17,32 @@
         background: #f8f9fa;
     }
 
-    .options {
-        margin-left: 20px;
+    .option {
+        margin: 10px 0;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .option:hover {
+        background-color: #f0f0f0;
+    }
+
+    .option.selected {
+        background-color: #cce5ff;
+        border-color: #007bff;
+    }
+
+    .option.correct {
+        background-color: #d4edda;
+        border-color: #28a745;
+    }
+
+    .option.incorrect {
+        background-color: #f8d7da;
+        border-color: #dc3545;
     }
 
     .written-question {
@@ -34,59 +58,296 @@
         border-radius: 4px;
     }
 
-    .submit-btn {
+    .button-group {
         margin-top: 20px;
+        display: flex;
+        gap: 10px;
+    }
+
+    .btn {
         padding: 10px 20px;
-        background-color: #007bff;
-        color: white;
         border: none;
         border-radius: 4px;
         cursor: pointer;
+        font-weight: bold;
     }
 
-    .submit-btn:hover {
-        background-color: #0056b3;
+    .submit-btn {
+        background-color: #007bff;
+        color: white;
+    }
+
+    .print-btn {
+        background-color: #6c757d;
+        color: white;
+    }
+
+    .score-display {
+        margin-top: 20px;
+        padding: 15px;
+        background-color: #e9ecef;
+        border-radius: 4px;
+        text-align: center;
+        font-size: 1.2em;
+        display: none;
+    }
+
+    .new-quiz-btn {
+        background-color: #28a745;
+        color: white;
+    }
+    
+    .loading {
+        opacity: 0.5;
+        pointer-events: none;
+    }
+
+    .loading-spinner {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.8);
+        z-index: 1000;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .spinner {
+        width: 50px;
+        height: 50px;
+        border: 5px solid #f3f3f3;
+        border-top: 5px solid #007bff;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .loading .loading-spinner {
+        display: flex;
     }
 </style>
 
 <div class="container mt-4">
     <h1>Quiz for {{ course.name }}</h1>
 
-    <div class="quiz-section">
-        <h2>Multiple Choice Questions</h2>
-        <div id="multipleChoice">
-            {{ quiz.multiple_choice | safe | nl2br }}
+    <form id="quizForm">
+        <div class="loading-spinner">
+            <div class="spinner"></div>
         </div>
-    </div>
-
-    <div class="quiz-section">
-        <h2>Written Response Questions</h2>
-        <div id="writtenResponse">
-            {{ quiz.written_response | safe | nl2br }}
+        
+        <div class="quiz-section">
+            <h2>Multiple Choice Questions</h2>
+            <div id="multipleChoice">
+                <!-- Questions will be dynamically inserted here -->
+            </div>
         </div>
-    </div>
 
-    <button class="submit-btn" onclick="window.print()">
-        Print Quiz
-    </button>
+        <div class="quiz-section">
+            <h2>Written Response Questions</h2>
+            <div id="writtenResponse">
+                <!-- Questions will be dynamically inserted here -->
+            </div>
+        </div>
+
+        <div class="score-display" id="scoreDisplay"></div>
+
+        <div class="button-group">
+            <button type="button" class="btn submit-btn" onclick="checkAnswers()">
+                Submit Quiz
+            </button>
+            <button type="button" class="btn print-btn" onclick="window.print()">
+                Print Quiz
+            </button>
+            <button type="button" class="btn new-quiz-btn" onclick="generateNewQuiz()">
+                New Quiz
+            </button>
+        </div>
+    </form>
 </div>
 
 <script>
-    // Format the quiz content for better display
-    document.addEventListener('DOMContentLoaded', function() {
-        // Format multiple choice questions
-        const mcContent = document.getElementById('multipleChoice');
-        mcContent.innerHTML = mcContent.innerHTML
-            .replace(/Q:/g, '<div class="question"><strong>Q:</strong>')
-            .replace(/Correct:/g, '</div><div><strong>Correct:</strong>')
-            .replace(/([A-D]\))/g, '<div class="options">$1')
-            .replace(/\n/g, '</div>\n');
+    let quizData = {{ quiz | tojson | safe }};
+    let score = 0;
+    let totalQuestions = 0;
 
-        // Format written response questions
-        const wrContent = document.getElementById('writtenResponse');
-        wrContent.innerHTML = wrContent.innerHTML
-            .replace(/Q\d+:/g, '<div class="written-question"><strong>$&</strong>')
-            .replace(/\n/g, '</div>\n');
+    document.addEventListener('DOMContentLoaded', function() {
+        // Format and display multiple choice questions
+        const mcContainer = document.getElementById('multipleChoice');
+        if (quizData.multiple_choice && quizData.multiple_choice.questions) {
+            const mcQuestions = formatMultipleChoice(quizData.multiple_choice.questions);
+            mcContainer.innerHTML = mcQuestions;
+        }
+
+        // Format and display written response questions
+        const wrContainer = document.getElementById('writtenResponse');
+        if (quizData.written_response && quizData.written_response.questions) {
+            const wrQuestions = formatWrittenResponse(quizData.written_response.questions);
+            wrContainer.innerHTML = wrQuestions;
+        }
+
+        // Add click handlers to multiple choice options
+        document.querySelectorAll('.option').forEach(option => {
+            option.addEventListener('click', function() {
+                const questionDiv = this.closest('.question');
+                questionDiv.querySelectorAll('.option').forEach(opt => {
+                    opt.classList.remove('selected');
+                });
+                this.classList.add('selected');
+            });
+        });
     });
+
+    function formatMultipleChoice(questions) {
+        return questions.map((questionText, index) => {
+            const lines = questionText.split('\n');
+            const question = lines[0].replace('Q:', '').trim();
+            const options = lines.slice(1);
+            
+            return `
+                <div class="question" data-question="${index + 1}">
+                    <strong>Question ${index + 1}:</strong> ${question}
+                    <div class="options">
+                        ${options.map((opt, i) => `
+                            <div class="option" data-option="${['A', 'B', 'C', 'D'][i]}">
+                                ${opt.trim()}
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function formatWrittenResponse(questions) {
+        return questions.map((question, index) => {
+            return `
+                <div class="written-question">
+                    <strong>Question ${index + 1}:</strong> ${question}
+                    <textarea placeholder="Enter your answer here..."></textarea>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function checkAnswers() {
+        score = 0;
+        totalQuestions = quizData.multiple_choice.questions.length;
+        
+        // Check multiple choice answers
+        document.querySelectorAll('.question').forEach((question, index) => {
+            const selectedOption = question.querySelector('.option.selected');
+            if (selectedOption) {
+                const selectedAnswer = selectedOption.dataset.option;
+                const correctAnswer = quizData.multiple_choice.answers[index];
+                
+                if (selectedAnswer === correctAnswer) {
+                    selectedOption.classList.add('correct');
+                    score++;
+                } else {
+                    selectedOption.classList.add('incorrect');
+                    // Show correct answer
+                    question.querySelectorAll('.option').forEach(opt => {
+                        if (opt.dataset.option === correctAnswer) {
+                            opt.classList.add('correct');
+                        }
+                    });
+                }
+            }
+        });
+
+        // Display score
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        scoreDisplay.innerHTML = `Score: ${score}/${totalQuestions} (${Math.round(score/totalQuestions * 100)}%)`;
+        scoreDisplay.style.display = 'block';
+
+        // Disable further changes
+        document.querySelectorAll('.option').forEach(option => {
+            option.style.pointerEvents = 'none';
+        });
+    }
+
+    function generateNewQuiz() {
+        // Get the current course ID from the URL
+        const courseId = window.location.pathname.split('/').pop();
+        
+        // Add loading state and show spinner
+        const quizForm = document.getElementById('quizForm');
+        quizForm.classList.add('loading');
+        
+        // Scroll to top to show loading spinner
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        
+        // Get CSRF token from meta tag
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        
+        // Fetch new quiz
+        fetch(`/create-quiz/${courseId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            credentials: 'same-origin'
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            // Update quiz data
+            quizData = data;
+            
+            // Reset score
+            score = 0;
+            totalQuestions = 0;
+            
+            // Clear score display
+            const scoreDisplay = document.getElementById('scoreDisplay');
+            scoreDisplay.style.display = 'none';
+            
+            // Update questions
+            const mcContainer = document.getElementById('multipleChoice');
+            if (quizData.multiple_choice && quizData.multiple_choice.questions) {
+                mcContainer.innerHTML = formatMultipleChoice(quizData.multiple_choice.questions);
+            }
+            
+            const wrContainer = document.getElementById('writtenResponse');
+            if (quizData.written_response && quizData.written_response.questions) {
+                wrContainer.innerHTML = formatWrittenResponse(quizData.written_response.questions);
+            }
+            
+            // Re-add click handlers
+            document.querySelectorAll('.option').forEach(option => {
+                option.addEventListener('click', function() {
+                    const questionDiv = this.closest('.question');
+                    questionDiv.querySelectorAll('.option').forEach(opt => {
+                        opt.classList.remove('selected');
+                    });
+                    this.classList.add('selected');
+                });
+            });
+            
+            // Remove loading state
+            quizForm.classList.remove('loading');
+        })
+        .catch(error => {
+            console.error('Error generating new quiz:', error);
+            alert('Failed to generate new quiz. Please try again.');
+            quizForm.classList.remove('loading');
+        });
+    }
 </script>
 {% endblock %} 
