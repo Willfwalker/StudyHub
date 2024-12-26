@@ -62,71 +62,66 @@ class DocsService:
             self.drive_service = build('drive', 'v3', credentials=self.creds)
             self.docs_service = build('docs', 'v1', credentials=self.creds)
 
-    def _get_token_path(self):
-        """Get the token file path for the specific user"""
-        # Create google_tokens directory if it doesn't exist
-        tokens_dir = Path('google_tokens')
-        tokens_dir.mkdir(exist_ok=True)
-        
-        # Return path to user-specific token file
-        return tokens_dir / f'google_token_{self.user_id}.pickle'
-
     def _get_credentials(self):
-        """Gets valid credentials for the current user."""
-        creds = None
-        
+        """Gets valid credentials for the current user from Firebase."""
         if not self.user_id:
             return None
 
-        token_path = self._get_token_path()
+        try:
+            # Get token data from Firebase
+            user_ref = db.reference(f'users/{self.user_id}/google_credentials')
+            token_data = user_ref.get()
 
-        # Load existing credentials if they exist
-        if token_path.exists():
-            try:
-                with open(token_path, 'rb') as token:
-                    creds = pickle.load(token)
-            except Exception as e:
-                print(f"Error loading credentials: {str(e)}")
-                return None
+            creds = None
+            if token_data:
+                # Convert stored token data back to Credentials object
+                creds = Credentials(
+                    token=token_data.get('token'),
+                    refresh_token=token_data.get('refresh_token'),
+                    token_uri=token_data.get('token_uri'),
+                    client_id=token_data.get('client_id'),
+                    client_secret=token_data.get('client_secret'),
+                    scopes=token_data.get('scopes')
+                )
 
-        # If there are no (valid) credentials available, let the user log in.
-        if not creds or not creds.valid:
-            if creds and creds.expired and creds.refresh_token:
-                try:
-                    creds.refresh(Request())
-                except Exception as e:
-                    print(f"Error refreshing credentials: {str(e)}")
-                    return None
-            else:
-                try:
-                    flow = InstalledAppFlow.from_client_secrets_file(
-                        os.getenv('CREDENTIALS_PATH'), self.SCOPES)
-                    creds = flow.run_local_server(port=0)
-                except Exception as e:
-                    print(f"Error creating new credentials: {str(e)}")
-                    return None
+            # If there are no (valid) credentials available, let the user log in
+            if not creds or not creds.valid:
+                if creds and creds.expired and creds.refresh_token:
+                    try:
+                        creds.refresh(Request())
+                        # Save refreshed credentials
+                        self._save_credentials_to_firebase(creds)
+                    except Exception as e:
+                        print(f"Error refreshing credentials: {str(e)}")
+                        return None
+                else:
+                    try:
+                        flow = InstalledAppFlow.from_client_secrets_file(
+                            os.getenv('CREDENTIALS_PATH'), self.SCOPES)
+                        creds = flow.run_local_server(port=0)
+                        # Save new credentials
+                        self._save_credentials_to_firebase(creds)
+                    except Exception as e:
+                        print(f"Error creating new credentials: {str(e)}")
+                        return None
 
-            # Save the credentials for the next run
-            try:
-                with open(token_path, 'wb') as token:
-                    pickle.dump(creds, token)
-            except Exception as e:
-                print(f"Error saving credentials: {str(e)}")
+            return creds
 
-        return creds
+        except Exception as e:
+            print(f"Error getting credentials from Firebase: {str(e)}")
+            return None
 
     def delete_token(self):
-        """Delete the user's Google token"""
-        if not self.user_id:
-            return False
-            
-        token_path = self._get_token_path()
+        """Delete the user's Google token from Firebase"""
         try:
-            if token_path.exists():
-                token_path.unlink()
+            if not self.user_id:
+                return False
+            
+            user_ref = db.reference(f'users/{self.user_id}/google_credentials')
+            user_ref.delete()
             return True
         except Exception as e:
-            print(f"Error deleting token: {str(e)}")
+            print(f"Error deleting token from Firebase: {str(e)}")
             return False
 
     def create_document(self, title: str) -> Optional[Dict]:
@@ -1083,4 +1078,31 @@ class DocsService:
             
         except Exception as e:
             print(f"Error checking for new semester: {e}")
+            return False
+
+    def _save_credentials_to_firebase(self, creds):
+        """Saves Google credentials to Firebase for the current user."""
+        try:
+            if not self.user_id:
+                return False
+
+            # Convert credentials to dictionary format
+            token_data = {
+                'token': creds.token,
+                'refresh_token': creds.refresh_token,
+                'token_uri': creds.token_uri,
+                'client_id': creds.client_id,
+                'client_secret': creds.client_secret,
+                'scopes': creds.scopes,
+                'expiry': creds.expiry.isoformat() if creds.expiry else None,
+                'updated_at': datetime.now().isoformat()
+            }
+
+            # Save to Firebase
+            user_ref = db.reference(f'users/{self.user_id}/google_credentials')
+            user_ref.set(token_data)
+            return True
+
+        except Exception as e:
+            print(f"Error saving credentials to Firebase: {str(e)}")
             return False
