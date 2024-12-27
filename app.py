@@ -85,11 +85,13 @@ try:
                 print("Firebase initialized successfully with config:", firebase_cred_dict.get('project_id'))
             else:
                 print("Firebase already initialized")
+        except json.JSONDecodeError as e:
+            print(f"JSON Parse Error: {str(e)}")
+            print(f"Raw JSON string: {firebase_cred_json}")
+        except Exception as e:
+            print(f"Error initializing Firebase: {str(e)}")
     else:
         print("Warning: FIREBASE_CREDENTIALS_JSON environment variable not set")
-except json.JSONDecodeError as e:
-    print(f"JSON Parse Error: {str(e)}")
-    print(f"Raw JSON string: {firebase_cred_json}")
 except Exception as e:
     print(f"Firebase initialization error: {str(e)}")
 
