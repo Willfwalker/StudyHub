@@ -85,13 +85,11 @@ try:
                 print("Firebase initialized successfully with config:", firebase_cred_dict.get('project_id'))
             else:
                 print("Firebase already initialized")
-        except json.JSONDecodeError as e:
-            print(f"JSON Parse Error: {str(e)}")
-            print(f"Raw JSON string: {firebase_cred_json}")
-        except Exception as e:
-            print(f"Error initializing Firebase: {str(e)}")
     else:
         print("Warning: FIREBASE_CREDENTIALS_JSON environment variable not set")
+except json.JSONDecodeError as e:
+    print(f"JSON Parse Error: {str(e)}")
+    print(f"Raw JSON string: {firebase_cred_json}")
 except Exception as e:
     print(f"Firebase initialization error: {str(e)}")
 
@@ -1059,28 +1057,30 @@ def login_page():
 def api_login():
     try:
         data = request.get_json()
-        print("Login request data:", data)  # Debug log
+        print("Received login request data:", data)  # Debug log
         
         if not data or 'idToken' not in data:
+            print("No ID token provided in request")  # Debug log
             return jsonify({'error': 'No ID token provided'}), 400
 
+        # Verify the Firebase ID token
         try:
-            # Verify the Firebase ID token
             decoded_token = auth.verify_id_token(data['idToken'])
             user_id = decoded_token['uid']
-            print(f"Token verified for user: {user_id}")  # Debug log
+            print(f"Successfully verified token for user: {user_id}")  # Debug log
             
-            # Set session data
-            session.clear()  # Clear any existing session
+            # Store user info in session
             session['user_id'] = user_id
             session['email'] = decoded_token.get('email', '')
-            print("Session after login:", dict(session))  # Debug log
             
             return jsonify({
                 'success': True,
                 'redirect': url_for('dashboard')
             })
             
+        except auth.InvalidIdTokenError:
+            print("Invalid ID token")  # Debug log
+            return jsonify({'error': 'Invalid token'}), 401
         except Exception as e:
             print(f"Token verification error: {str(e)}")  # Debug log
             return jsonify({'error': 'Token verification failed'}), 401
