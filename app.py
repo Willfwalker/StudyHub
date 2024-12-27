@@ -1029,62 +1029,34 @@ def login_page():
     return render_template('index.html', config=firebase_config)
             
 @app.route('/api/login', methods=['POST'])
-def handle_login():
+@csrf.exempt
+def api_login():
     try:
-        # Get the ID token from the request
         data = request.get_json()
-        if not data:
-            return jsonify({'error': 'No data provided'}), 400
-            
-        if 'idToken' not in data:
+        if not data or 'idToken' not in data:
             return jsonify({'error': 'No ID token provided'}), 400
 
-        id_token = data['idToken']
-
+        # Verify the Firebase ID token
         try:
-            # Add clock tolerance when verifying the token
-            decoded_token = auth.verify_id_token(
-                id_token,
-                check_revoked=True,
-                clock_skew_seconds=60
-            )
-            
-            # Get the user's ID from the decoded token
+            decoded_token = auth.verify_id_token(data['idToken'])
             user_id = decoded_token['uid']
             
             # Store user info in session
             session['user_id'] = user_id
             session['email'] = decoded_token.get('email', '')
             
-            # Set session expiry
-            session.permanent = True
-            
-            # Return a properly formatted JSON response
             return jsonify({
                 'success': True,
-                'redirect': url_for('dashboard')
+                'redirect': url_for('dashboard')  # Redirect to dashboard after login
             })
-
-        except auth.InvalidIdTokenError:
-            return jsonify({'error': 'Invalid token'}), 401
-        except auth.ExpiredIdTokenError:
-            return jsonify({'error': 'Token expired'}), 401
-        except auth.RevokedIdTokenError:
-            return jsonify({'error': 'Token revoked'}), 401
-        except auth.UserDisabledError:
-            return jsonify({'error': 'User disabled'}), 401
+            
         except Exception as e:
-            return jsonify({
-                'error': 'Authentication error',
-                'details': str(e)
-            }), 400
+            print(f"Token verification error: {str(e)}")
+            return jsonify({'error': 'Invalid token'}), 401
 
     except Exception as e:
         print(f"Login error: {str(e)}")
-        return jsonify({
-            'error': 'Server error',
-            'details': str(e)
-        }), 500
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
