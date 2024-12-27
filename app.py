@@ -68,14 +68,21 @@ CLASS_IMAGES = {
 
 # Initialize Firebase with credentials from environment variable
 try:
+    # Get Firebase credentials from environment variable
     firebase_cred_json = os.getenv('FIREBASE_CREDENTIALS_JSON')
     if firebase_cred_json:
-        firebase_cred_dict = json.loads(firebase_cred_json)
-        cred = credentials.Certificate(firebase_cred_dict)
-        firebase_admin.initialize_app(cred, {
-            'databaseURL': 'https://student-hub-28ea1-default-rtdb.firebaseio.com/'
-        })
-        print("Firebase initialized successfully")
+        try:
+            firebase_cred_dict = json.loads(firebase_cred_json)
+            cred = credentials.Certificate(firebase_cred_dict)
+            if not firebase_admin._apps:  # Check if already initialized
+                firebase_admin.initialize_app(cred, {
+                    'databaseURL': 'https://student-hub-28ea1-default-rtdb.firebaseio.com/'
+                })
+            print("Firebase initialized successfully")
+        except json.JSONDecodeError as e:
+            print(f"Error parsing Firebase credentials JSON: {str(e)}")
+        except Exception as e:
+            print(f"Error initializing Firebase: {str(e)}")
     else:
         print("Warning: FIREBASE_CREDENTIALS_JSON environment variable not set")
 except Exception as e:
