@@ -27,6 +27,17 @@ load_dotenv()
 app = Flask(__name__, static_folder='static', static_url_path='/static')
 app.debug = False if os.getenv('FLASK_ENV') == 'production' else True
 app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'your-secret-key-here')
+
+# Ensure static folder exists
+static_folder = os.path.join(os.getcwd(), 'static')
+if not os.path.exists(static_folder):
+    os.makedirs(static_folder)
+
+# Ensure cache folder exists
+cache_dir = os.path.join(static_folder, 'images', 'cache')
+if not os.path.exists(cache_dir):
+    os.makedirs(cache_dir)
+
 csrf = CSRFProtect(app)
 cache = Cache(app, config={
     'CACHE_TYPE': 'simple',
@@ -131,32 +142,34 @@ def login_required(f):
 # Add this new function to handle image caching
 def cache_class_images(classes):
     """Cache class images to avoid reloading them on every request"""
-    cache_dir = Path('static/images/cache')
-    cache_file = cache_dir / 'class_image_cache.json'
-    
-    # Create cache directory if it doesn't exist
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Load existing cache if it exists
-    cached_images = {}
-    if cache_file.exists():
-        with open(cache_file, 'r') as f:
-            cached_images = json.load(f)
-    
-    # Update cache with new class images
-    for class_obj in classes:
-        class_id = str(class_obj['id'])
-        if class_id not in cached_images:
-            cached_images[class_id] = get_class_image(
-                class_obj['name'],
-                class_obj.get('course_code', '')
-            )
-    
-    # Save updated cache
-    with open(cache_file, 'w') as f:
-        json.dump(cached_images, f)
-    
-    return cached_images
+    try:
+        cache_dir = os.path.join(os.getcwd(), 'static', 'images', 'cache')
+        if not os.path.exists(cache_dir):
+            os.makedirs(cache_dir)
+        
+        cache_file = os.path.join(cache_dir, 'class_image_cache.json')
+        
+        # Load existing cache if it exists
+        cached_images = {}
+        if os.path.exists(cache_file):
+            with open(cache_file, 'r') as f:
+                cached_images = json.load(f)
+        
+        # Update cache with new class images
+        for class_obj in classes:
+            class_id = str(class_obj['id'])
+            if class_id not in cached_images:
+                cached_images[class_id] = url_for('static', filename='images/classes/default.jpg')
+        
+        # Save updated cache
+        with open(cache_file, 'w') as f:
+            json.dump(cached_images, f)
+        
+        return cached_images
+    except Exception as e:
+        print(f"Error in cache_class_images: {str(e)}")
+        return {}
+
 # Modify the dashboard route to use cached images
 @app.route('/base')
 @login_required
