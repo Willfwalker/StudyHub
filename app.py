@@ -72,19 +72,24 @@ try:
     firebase_cred_json = os.getenv('FIREBASE_CREDENTIALS_JSON')
     if firebase_cred_json:
         try:
+            # Clean up the JSON string - remove extra quotes and escape characters
+            firebase_cred_json = firebase_cred_json.strip().strip("'").replace('\\"', '"')
             firebase_cred_dict = json.loads(firebase_cred_json)
-            cred = credentials.Certificate(firebase_cred_dict)
-            if not firebase_admin._apps:  # Check if already initialized
+            
+            # Check if Firebase is already initialized
+            if not firebase_admin._apps:
+                cred = credentials.Certificate(firebase_cred_dict)
                 firebase_admin.initialize_app(cred, {
-                    'databaseURL': 'https://student-hub-28ea1-default-rtdb.firebaseio.com/'
+                    'databaseURL': os.getenv('FIREBASE_DATABASE_URL', 'https://student-hub-28ea1-default-rtdb.firebaseio.com/')
                 })
-            print("Firebase initialized successfully")
-        except json.JSONDecodeError as e:
-            print(f"Error parsing Firebase credentials JSON: {str(e)}")
-        except Exception as e:
-            print(f"Error initializing Firebase: {str(e)}")
+                print("Firebase initialized successfully with config:", firebase_cred_dict.get('project_id'))
+            else:
+                print("Firebase already initialized")
     else:
         print("Warning: FIREBASE_CREDENTIALS_JSON environment variable not set")
+except json.JSONDecodeError as e:
+    print(f"JSON Parse Error: {str(e)}")
+    print(f"Raw JSON string: {firebase_cred_json}")
 except Exception as e:
     print(f"Firebase initialization error: {str(e)}")
 
@@ -216,6 +221,18 @@ def make_cache_key(*args, **kwargs):
     # Get the current route name
     route = request.endpoint or 'default'
     return f'{route}-{session.get("user_id", "")}'
+
+@app.route('/')
+def index():
+    if 'user_id' in session:
+        return redirect(url_for('dashboard'))
+    return redirect(url_for('login_page'))
+
+@app.route('/login')
+def login_page():
+    if 'user_id' in session:
+        return redirect(url_for('dashboard'))
+    return render_template('index.html')
 
 @app.route('/')
 @app.route('/dashboard')
@@ -1040,30 +1057,28 @@ def login_page():
 def api_login():
     try:
         data = request.get_json()
-        print("Received login request data:", data)  # Debug log
+        print("Login request data:", data)  # Debug log
         
         if not data or 'idToken' not in data:
-            print("No ID token provided in request")  # Debug log
             return jsonify({'error': 'No ID token provided'}), 400
 
-        # Verify the Firebase ID token
         try:
+            # Verify the Firebase ID token
             decoded_token = auth.verify_id_token(data['idToken'])
             user_id = decoded_token['uid']
-            print(f"Successfully verified token for user: {user_id}")  # Debug log
+            print(f"Token verified for user: {user_id}")  # Debug log
             
-            # Store user info in session
+            # Set session data
+            session.clear()  # Clear any existing session
             session['user_id'] = user_id
             session['email'] = decoded_token.get('email', '')
+            print("Session after login:", dict(session))  # Debug log
             
             return jsonify({
                 'success': True,
                 'redirect': url_for('dashboard')
             })
             
-        except auth.InvalidIdTokenError:
-            print("Invalid ID token")  # Debug log
-            return jsonify({'error': 'Invalid token'}), 401
         except Exception as e:
             print(f"Token verification error: {str(e)}")  # Debug log
             return jsonify({'error': 'Token verification failed'}), 401
@@ -2119,6 +2134,21 @@ def index():
     except Exception as e:
         print(f"Error rendering index: {str(e)}")
         return str(e), 500
+
+# Make sure session configuration is set properly
+app.config.update({
+    'SECRET_KEY': os.getenv('FLASK_SECRET_KEY', 'your-secret-key-here'),
+    'SESSION_COOKIE_SECURE': True,  # For HTTPS
+    'SESSION_COOKIE_HTTPONLY': True,
+    'SESSION_COOKIE_SAMESITE': 'Lax',
+    'PERMANENT_SESSION_LIFETIME': timedelta(days=7)
+})
+
+# Add debug logging for session
+@app.before_request
+def before_request():
+    print("Session contents:", dict(session))
+    print("Request path:", request.path)
 
 if __name__ == '__main__':
     app.run(debug=True)
