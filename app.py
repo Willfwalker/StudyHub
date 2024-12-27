@@ -1033,13 +1033,17 @@ def login_page():
 def api_login():
     try:
         data = request.get_json()
+        print("Received login request data:", data)  # Debug log
+        
         if not data or 'idToken' not in data:
+            print("No ID token provided in request")  # Debug log
             return jsonify({'error': 'No ID token provided'}), 400
 
         # Verify the Firebase ID token
         try:
             decoded_token = auth.verify_id_token(data['idToken'])
             user_id = decoded_token['uid']
+            print(f"Successfully verified token for user: {user_id}")  # Debug log
             
             # Store user info in session
             session['user_id'] = user_id
@@ -1047,15 +1051,18 @@ def api_login():
             
             return jsonify({
                 'success': True,
-                'redirect': url_for('dashboard')  # Redirect to dashboard after login
+                'redirect': url_for('dashboard')
             })
             
-        except Exception as e:
-            print(f"Token verification error: {str(e)}")
+        except auth.InvalidIdTokenError:
+            print("Invalid ID token")  # Debug log
             return jsonify({'error': 'Invalid token'}), 401
+        except Exception as e:
+            print(f"Token verification error: {str(e)}")  # Debug log
+            return jsonify({'error': 'Token verification failed'}), 401
 
     except Exception as e:
-        print(f"Login error: {str(e)}")
+        print(f"Login error: {str(e)}")  # Debug log
         return jsonify({'error': str(e)}), 500
 
 @app.route('/register', methods=['GET', 'POST'])

@@ -64,29 +64,30 @@
             appId: "{{ config.FIREBASE_APP_ID }}"
         };
 
-        // Initialize Firebase
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-
         // Handle login button click
-        document.getElementById('loginButton').addEventListener('click', async () => {
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const errorDiv = document.getElementById('error-message') || document.createElement('div');
-            const csrfToken = document.querySelector('input[name="csrf_token"]').value;
-
-            if (!errorDiv.id) {
-                errorDiv.id = 'error-message';
-                errorDiv.className = 'error-message';
-                document.getElementById('loginForm').appendChild(errorDiv);
-            }
+        document.getElementById('loginButton').addEventListener('click', async function(e) {
+            e.preventDefault();
+            const errorDiv = document.querySelector('.error-message');
+            errorDiv.style.display = 'none';
             
             try {
-                // First authenticate with Firebase
-                const userCredential = await signInWithEmailAndPassword(auth, email, password);
-                const idToken = await userCredential.user.getIdToken();
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+                const csrfToken = document.querySelector('input[name="csrf_token"]').value;
                 
-                // Then send the token to your backend
+                // Initialize Firebase
+                const app = initializeApp(firebaseConfig);
+                const auth = getAuth(app);
+                
+                // Sign in with Firebase
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                console.log("Firebase login successful");  // Debug log
+                
+                // Get the ID token
+                const idToken = await userCredential.user.getIdToken();
+                console.log("Got ID token");  // Debug log
+                
+                // Send token to backend
                 const response = await fetch('/api/login', {
                     method: 'POST',
                     headers: {
@@ -95,11 +96,12 @@
                     },
                     body: JSON.stringify({
                         idToken: idToken,
-                        csrfToken: csrfToken  // Include CSRF token in the body as well
+                        csrfToken: csrfToken
                     })
                 });
-
+                
                 const data = await response.json();
+                console.log("Backend response:", data);  // Debug log
                 
                 if (response.ok && data.success) {
                     window.location.href = data.redirect;
@@ -107,7 +109,7 @@
                     throw new Error(data.error || 'Login failed');
                 }
             } catch (error) {
-                console.error('Login error:', error);
+                console.error('Login error:', error);  // Debug log
                 errorDiv.textContent = error.message;
                 errorDiv.style.display = 'block';
             }
