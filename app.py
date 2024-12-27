@@ -24,6 +24,12 @@ import time
 
 load_dotenv()
 
+# Create Flask app first
+app = Flask(__name__, static_folder='static', static_url_path='/static')
+app.debug = False if os.getenv('FLASK_ENV') == 'production' else True
+app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'your-secret-key-here')
+
+# Then update the config
 app.config.update({
     'FIREBASE_API_KEY': os.getenv('FIREBASE_API_KEY'),
     'FIREBASE_AUTH_DOMAIN': os.getenv('FIREBASE_AUTH_DOMAIN'),
@@ -34,10 +40,6 @@ app.config.update({
 })
 
 print("Firebase Config:", {k: v for k, v in app.config.items() if k.startswith('FIREBASE_')})
-
-app = Flask(__name__, static_folder='static', static_url_path='/static')
-app.debug = False if os.getenv('FLASK_ENV') == 'production' else True
-app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'your-secret-key-here')
 
 # Ensure static folder exists
 static_folder = os.path.join(os.getcwd(), 'static')
