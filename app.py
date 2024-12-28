@@ -72,11 +72,10 @@ try:
     firebase_cred_json = os.getenv('FIREBASE_CREDENTIALS_JSON')
     if firebase_cred_json:
         try:
-            # Clean up the JSON string - remove extra quotes and escape characters
+            # Clean up the JSON string
             firebase_cred_json = firebase_cred_json.strip().strip("'").replace('\\"', '"')
             firebase_cred_dict = json.loads(firebase_cred_json)
             
-            # Check if Firebase is already initialized
             if not firebase_admin._apps:
                 cred = credentials.Certificate(firebase_cred_dict)
                 firebase_admin.initialize_app(cred, {
@@ -85,11 +84,13 @@ try:
                 print("Firebase initialized successfully with config:", firebase_cred_dict.get('project_id'))
             else:
                 print("Firebase already initialized")
+        except json.JSONDecodeError as e:
+            print(f"JSON Parse Error: {str(e)}")
+            print(f"Raw JSON string: {firebase_cred_json}")
+        except Exception as e:
+            print(f"Error initializing Firebase: {str(e)}")
     else:
         print("Warning: FIREBASE_CREDENTIALS_JSON environment variable not set")
-except json.JSONDecodeError as e:
-    print(f"JSON Parse Error: {str(e)}")
-    print(f"Raw JSON string: {firebase_cred_json}")
 except Exception as e:
     print(f"Firebase initialization error: {str(e)}")
 
@@ -228,11 +229,26 @@ def index():
         return redirect(url_for('dashboard'))
     return redirect(url_for('login_page'))
 
-@app.route('/login')
+@app.route('/login', methods=['GET', 'POST'])
 def login_page():
+    # If user is already logged in, redirect to dashboard
     if 'user_id' in session:
         return redirect(url_for('dashboard'))
-    return render_template('index.html')
+        
+    # For GET requests, show the login page
+    if request.method == 'GET':
+        firebase_config = {
+            'FIREBASE_API_KEY': os.getenv('FIREBASE_API_KEY'),
+            'FIREBASE_AUTH_DOMAIN': os.getenv('FIREBASE_AUTH_DOMAIN'),
+            'FIREBASE_PROJECT_ID': os.getenv('FIREBASE_PROJECT_ID'),
+            'FIREBASE_STORAGE_BUCKET': os.getenv('FIREBASE_STORAGE_BUCKET'),
+            'FIREBASE_MESSAGING_SENDER_ID': os.getenv('FIREBASE_MESSAGING_SENDER_ID'),
+            'FIREBASE_APP_ID': os.getenv('FIREBASE_APP_ID')
+        }
+        return render_template('index.html', config=firebase_config)
+
+    # For POST requests, handle login through API endpoint instead
+    return redirect(url_for('api_login'))
 
 @app.route('/')
 @app.route('/dashboard')
@@ -1040,18 +1056,6 @@ def add_todo_item(task_text):
     # Implement todo item addition
     return {'id': 1, 'text': task_text, 'completed': False}
 
-@app.route('/login', methods=['GET', 'POST'])
-def login_page():
-    firebase_config = {
-        'FIREBASE_API_KEY': os.getenv('FIREBASE_API_KEY'),
-        'FIREBASE_AUTH_DOMAIN': os.getenv('FIREBASE_AUTH_DOMAIN'),
-        'FIREBASE_PROJECT_ID': os.getenv('FIREBASE_PROJECT_ID'),
-        'FIREBASE_STORAGE_BUCKET': os.getenv('FIREBASE_STORAGE_BUCKET'),
-        'FIREBASE_MESSAGING_SENDER_ID': os.getenv('FIREBASE_MESSAGING_SENDER_ID'),
-        'FIREBASE_APP_ID': os.getenv('FIREBASE_APP_ID')
-    }
-    return render_template('index.html', config=firebase_config)
-            
 @app.route('/api/login', methods=['POST'])
 @csrf.exempt
 def api_login():
@@ -2128,14 +2132,6 @@ def delete_flashcard(card_id):
 @login_required
 def review_flashcards():
     return render_template('review_flashcards.html')
-
-@app.route('/')
-def index():
-    try:
-        return render_template('index.html')
-    except Exception as e:
-        print(f"Error rendering index: {str(e)}")
-        return str(e), 500
 
 # Make sure session configuration is set properly
 app.config.update({
