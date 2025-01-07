@@ -34,7 +34,8 @@ app.config.update({
     'FIREBASE_PROJECT_ID': os.getenv('FIREBASE_PROJECT_ID'),
     'FIREBASE_STORAGE_BUCKET': os.getenv('FIREBASE_STORAGE_BUCKET'),
     'FIREBASE_MESSAGING_SENDER_ID': os.getenv('FIREBASE_MESSAGING_SENDER_ID'),
-    'FIREBASE_APP_ID': os.getenv('FIREBASE_APP_ID')
+    'FIREBASE_APP_ID': os.getenv('FIREBASE_APP_ID'),
+    'GOOGLE_CREDENTIALS_JSON': os.getenv('GOOGLE_CREDENTIALS_JSON')
 })
 
 # Ensure static folder exists

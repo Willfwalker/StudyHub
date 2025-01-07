@@ -30,16 +30,18 @@ class DocsService:
     def __init__(self, user_id=None):
         """Initialize the DocsService with user credentials"""
         self.user_id = user_id
-        self.creds = None
+        self.credentials = None
+        self.docs_service = None
+        self.drive_service = None  # Initialize the attribute
         
-        if user_id:
-            # Get credentials from Firebase
-            self.creds = self._get_credentials()
-            
-            if self.creds:
-                # Build the services
-                self.drive_service = build('drive', 'v3', credentials=self.creds)
-                self.docs_service = build('docs', 'v1', credentials=self.creds)
+        try:
+            if user_id:
+                self.credentials = self._get_credentials()
+                if self.credentials:
+                    self.docs_service = build('docs', 'v1', credentials=self.credentials)
+                    self.drive_service = build('drive', 'v3', credentials=self.credentials)  # Initialize drive_service
+        except Exception as e:
+            print(f"Error initializing DocsService: {str(e)}")
 
     def _get_credentials(self):
         """Gets valid credentials for the current user from Firebase."""
@@ -47,8 +49,35 @@ class DocsService:
             return None
 
         try:
+            # First try to get credentials from Firebase
+            creds = self._get_credentials_from_firebase()
+            if creds:
+                return creds
+
+            # If not in Firebase, try to get from environment
+            google_creds_json = os.getenv('GOOGLE_CREDENTIALS_JSON')
+            if not google_creds_json:
+                raise ValueError("GOOGLE_CREDENTIALS_JSON environment variable not set")
+            
+            creds_dict = json.loads(google_creds_json)
+            creds = Credentials.from_authorized_user_info(creds_dict)
+            
+            # Save credentials to Firebase for future use
+            self._save_credentials_to_firebase(creds)
+            
+            return creds
+        except Exception as e:
+            print(f"Error getting credentials: {str(e)}")
+            return None
+
+    def _get_credentials_from_firebase(self):
+        """Gets valid credentials for the current user from Firebase."""
+        if not self.user_id:
+            return None
+
+        try:
             # Load credentials from settings string
-            credentials_dict = json.loads(GOOGLE_CREDENTIALS_JSON)
+            credentials_dict = json.loads(os.getenv('GOOGLE_CREDENTIALS_JSON'))
             
             # Get token data from Firebase
             user_ref = db.reference(f'users/{self.user_id}/google_credentials')
