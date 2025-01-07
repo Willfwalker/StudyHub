@@ -228,7 +228,7 @@ def make_cache_key(*args, **kwargs):
 def index():
     if 'user_id' in session:
         return redirect(url_for('dashboard'))
-    return redirect(url_for('login_page'))
+    return render_template('welcome.html')
 
 @app.route('/login', methods=['GET', 'POST'])
 def login_page():

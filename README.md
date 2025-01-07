@@ -1,95 +1,62 @@
-# StudyHub
-> A comprehensive student academic management platform that integrates with Canvas LMS and Google Workspace.
+Make .env file and add the following:
 
-## 🚀 Features
+- YOUTUBE_API_KEY
+- GEMINI_API_KEY
+- CANVAS_URL
+- FIREBASE_CREDENTIALS_JSON
+- CREDENTIALS_PATH
+- FLASK_SECRET_KEY
+- PEXELS_API_KEY
+- PEXELS_API_URL
+- FIREBASE_API_KEY
+- FIREBASE_AUTH_DOMAIN
+- FIREBASE_PROJECT_ID
+- FIREBASE_STORAGE_BUCKET
+- FIREBASE_MESSAGING_SENDER_ID
+- FIREBASE_APP_ID
+- FIREBASE_DATABASE_URL
+- FLASK_APP
+- MAIL_PASSWORD
+- CANVAS_API_KEY
+- GOOGLE_CREDENTIALS_JSON
 
-### 📚 Assignment Management
-- View and track course assignments
-- Create assignment documents (MLA, APA formats)
-- Automatic Google Docs integration
-- Smart submission tracking
-- Due date reminders
+Make sure to download the necassary requirements for the project.
 
-### 📖 Study Tools
-- **Lecture Summary Generator:** Convert notes into concise summaries
-- **Citation Generator:** Multiple format support
-- **Quiz Maker:** Create custom study materials
-- **Flashcard System:** Digital flashcards for effective studying
-- **To-Do List:** Organize tasks and assignments
+Set firebase rules to this:
+{
+  "rules": {
+    "users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        "documents": {
+          "$doc_id": {
+            ".read": "auth != null && auth.uid === $uid",
+            ".write": "auth != null && auth.uid === $uid",
+            ".validate": "newData.hasChildren(['document_id', 'assignment_name', 'course_name', 'url'])"
+          }
+        },
+        "canvas_api_key": {
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": "auth != null && auth.uid === $uid"
+        }
+      }
+    },
+    "test": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}
 
-### 🔄 Integrations
-#### Canvas LMS
-- Seamless synchronization
-- Real-time grade tracking
-- Assignment submission status
-- Course material access
+Make sure that you're google cloud api key is enabled for the following apis:
 
-#### Google Workspace
-- Automatic document creation and storage
-- Cloud-based file management
-- Organized course folder structure
+- Youtube Data API
+- Gemini API
+- Docs API
+- Sheets API
+- Drive API
 
-### 🤖 Smart Features
-- AI-powered chat assistance
-- Study video recommendations
-- Text summarization tools
-- Bug reporting system
+You'll need to have an email with and app password for the gmail account you're using to send bugs to.
 
-## ⚙️ Technical Requirements
-
-### Prerequisites
-- Canvas API access
-- Google Workspace account
-- Modern web browser
-- Internet connection
-
-### Required API Keys
-- Canvas API key
-- Google Drive API access
-
-## 🛠️ Setup Instructions
-
-1. **Create Account**
-   - Sign up for StudyHub
-
-2. **Configure Canvas**
-   - Enter Canvas URL
-   - Add API key
-   - Verify connection
-
-3. **Set up Google Drive**
-   - Select parent folder for documents
-   - Grant necessary permissions
-   - Test integration
-
-4. **Complete Profile**
-   - Add profile picture (optional)
-   - Configure notification preferences
-   - Set up course preferences
-
-## 🔒 Security Features
-- CSRF protection
-- Secure password handling
-- API key encryption
-- Session management
-- Secure file handling
-
-## 💻 User Interface
-Modern, intuitive interface featuring:
-- Responsive design
-- Dark/light mode support
-- Sidebar navigation
-- Quick access tools
-- Modal interfaces for focused tasks
-
-## 📞 Support
-Need help? Here's how to get support:
-- Use the in-app bug reporting tool
-- Contact support through your profile page
-- Check documentation for common issues
-
-## 📄 License
-All rights reserved. This software is proprietary and confidential.
-
----
-*Note: This README represents the current state of the application. Features and functionality may be updated over time.*
+After this, run app.py

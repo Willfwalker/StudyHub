@@ -1,5 +1,6 @@
 # Environment variables
 .env
+things_to_do.txt
 
 # Python
 __pycache__/
@@ -39,3 +40,9 @@ student-hub-28ea1-firebase-adminsdk-x3tg5-8e4d21f2be.json
 .vscode/
 *.swp
 *.swo .DS_Store
+
+#temp files
+
+base_mobile.html
+welcome.html
+privacy_&_personalization.html
