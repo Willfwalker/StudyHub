@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ title }}</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #fff;
+            font-family: 'Google Sans', Arial, sans-serif;
+        }
+
+        .logo {
+            width: 80px;
+            margin-bottom: 40px;
+            color: #4285f4;
+        }
+
+        .workspace-text {
+            color: #5f6368;
+            font-size: 24px;
+            margin-top: 20px;
+        }
+
+        .progress-container {
+            width: 300px;
+            height: 4px;
+            background-color: #e0e0e0;
+            border-radius: 2px;
+            margin-top: 40px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            width: 0%;
+            height: 100%;
+            background-color: #4285f4;
+            border-radius: 2px;
+            transition: width 0.5s ease;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+
+        .loading-text {
+            color: #5f6368;
+            margin-top: 20px;
+            animation: pulse 1.5s infinite;
+        }
+    </style>
+</head>
+<body>
+    <img src="{{ url_for('static', filename='images/graduation-cap.png') }}" alt="Graduation Cap" class="logo">
+    <div class="workspace-text">Learning Dashboard</div>
+    <div class="progress-container">
+        <div id="progressBar" class="progress-bar"></div>
+    </div>
+    <div class="loading-text">Loading your content...</div>
+
+    <script>
+        console.log("Loading page initialized"); // Debug log
+        
+        let progress = 0;
+        const progressBar = document.getElementById('progressBar');
+        const redirectUrl = "{{ redirect_url }}";
+
+        async function checkServerStatus() {
+            try {
+                const response = await fetch('/api/server-status');
+                console.log("Server status response:", response.ok); // Debug log
+                return response.ok;
+            } catch (error) {
+                console.error('Error checking server status:', error);
+                return false;
+            }
+        }
+
+        function updateProgress() {
+            if (progress < 90) {
+                progress += Math.random() * 10;
+                progressBar.style.width = `${progress}%`;
+                console.log("Progress updated:", progress); // Debug log
+            }
+        }
+
+        async function loadSequence() {
+            console.log("Starting load sequence"); // Debug log
+            const progressInterval = setInterval(updateProgress, 500);
+            
+            // Check server status every second
+            const statusCheck = setInterval(async () => {
+                const isReady = await checkServerStatus();
+                console.log("Server ready status:", isReady); // Debug log
+                
+                if (isReady) {
+                    clearInterval(statusCheck);
+                    clearInterval(progressInterval);
+                    
+                    progress = 100;
+                    progressBar.style.width = '100%';
+                    
+                    console.log("Redirecting to:", redirectUrl); // Debug log
+                    setTimeout(() => {
+                        window.location.href = redirectUrl;
+                    }, 500);
+                }
+            }, 1000);
+        }
+
+        // Start loading sequence immediately
+        loadSequence();
+    </script>
+</body>
+</html> 

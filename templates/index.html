@@ -40,7 +40,14 @@
                     </div>
                 </div>
 
-                <button type="button" id="loginButton" class="login-button">Sign in</button>
+                <button type="button" id="loginButton" class="login-button">
+                    <span class="button-text">Sign in</span>
+                    <span class="loading-spinner" style="display: none;">
+                        <svg class="spinner" viewBox="0 0 50 50">
+                            <circle cx="25" cy="25" r="20" fill="none" stroke-width="5"></circle>
+                        </svg>
+                    </span>
+                </button>
                 
                 <div class="register-prompt">
                     <span>Don't have an account? </span>
@@ -70,6 +77,15 @@
 
         // Handle login button click
         document.getElementById('loginButton').addEventListener('click', async () => {
+            const loginButton = document.getElementById('loginButton');
+            const buttonText = loginButton.querySelector('.button-text');
+            const loadingSpinner = loginButton.querySelector('.loading-spinner');
+
+            // Disable button and show loading state
+            loginButton.disabled = true;
+            buttonText.style.display = 'none';
+            loadingSpinner.style.display = 'inline-block';
+
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             const errorDiv = document.getElementById('error-message') || document.createElement('div');
@@ -110,6 +126,11 @@
                 console.error('Login error:', error);
                 errorDiv.textContent = error.message;
                 errorDiv.style.display = 'block';
+            } finally {
+                // Reset button state
+                loginButton.disabled = false;
+                buttonText.style.display = 'inline-block';
+                loadingSpinner.style.display = 'none';
             }
         });
     </script>

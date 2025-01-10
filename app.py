@@ -21,6 +21,7 @@ from functools import lru_cache
 from flask_mail import Mail, Message
 from os import getenv
 import time
+import re
 
 load_dotenv()
 
@@ -122,22 +123,77 @@ def get_class_image(class_name, course_code=None):
             with open('static/images/cache/class_images.json', 'r') as f:
                 get_class_image._class_images = json.load(f)
         
-        # Try course code first
-        if course_code:
-            dept_code = course_code.split('-')[0]
-            if dept_code in get_class_image._class_images:
-                return get_class_image._class_images[dept_code]['pexels_image']
+        # Normalize the class name for better matching
+        class_name_upper = class_name.upper().strip()
         
-        # Try class name match
+        # 1. Try exact matches first
         for dept_code, info in get_class_image._class_images.items():
-            if dept_code in class_name.upper():
+            if dept_code in class_name_upper:
                 return info['pexels_image']
         
-        return url_for('static', filename='images/classes/default.jpg')
+        # 2. Try matching department names and common variations
+        department_matches = {
+            'MATHEMATICS': 'MAT', 'MATH': 'MAT', 'ALGEBRA': 'MAT', 'CALCULUS': 'MAT', 'STATISTICS': 'MAT',
+            'ENGLISH': 'ENG', 'COMPOSITION': 'ENG', 'LITERATURE': 'ENG', 'WRITING': 'ENG',
+            'HISTORY': 'HIS', 'HISTORICAL': 'HIS',
+            'COMPUTER': 'CSC', 'PROGRAMMING': 'CSC', 'SOFTWARE': 'CSC', 'CODING': 'CSC',
+            'PSYCHOLOGY': 'PSY', 'BEHAVIORAL': 'PSY',
+            'SOCIOLOGY': 'SOC', 'SOCIAL': 'SOC',
+            'PHILOSOPHY': 'PHI', 'ETHICS': 'PHI', 'LOGIC': 'PHI',
+            'PHYSICS': 'PHY', 'PHYSICAL': 'PHY',
+            'CHEMISTRY': 'CHE', 'CHEMICAL': 'CHE',
+            'BIOLOGY': 'BIO', 'BIOLOGICAL': 'BIO', 'LIFE SCIENCE': 'BIO',
+            'MUSIC': 'MUS', 'MUSICAL': 'MUS',
+            'BUSINESS': 'BUS', 'MANAGEMENT': 'BUS', 'MARKETING': 'BUS',
+            'ECONOMICS': 'ECO', 'ECONOMIC': 'ECO',
+            'EDUCATION': 'EDU', 'TEACHING': 'EDU',
+            'NURSING': 'NUR', 'HEALTH': 'NUR',
+            'POLITICAL': 'PSC', 'GOVERNMENT': 'PSC', 'POLITICS': 'PSC',
+            'THEATRE': 'THE', 'DRAMA': 'THE', 'ACTING': 'THE',
+            'SOCIAL WORK': 'SWK', 'SOCIAL WELFARE': 'SWK',
+            'RELIGION': 'REL', 'RELIGIOUS': 'REL', 'BIBLE': 'REL', 'BIBLICAL': 'REL',
+            'THEOLOGY': 'THE', 'THEOLOGICAL': 'THE',
+            'ART': 'ART', 'DRAWING': 'ART', 'PAINTING': 'ART',
+            'SPANISH': 'SPA', 'FRENCH': 'FRE', 'GERMAN': 'GER',
+            'COMMUNICATION': 'COM', 'SPEECH': 'COM',
+            'CRIMINAL JUSTICE': 'CRJ', 'CRIMINOLOGY': 'CRJ',
+            'DANCE': 'DAN',
+            'GEOLOGY': 'GEO', 'EARTH SCIENCE': 'GEO',
+            'KINESIOLOGY': 'KIN', 'PHYSICAL EDUCATION': 'KIN',
+            'LINGUISTICS': 'LIN', 'LANGUAGE': 'LIN'
+        }
+        
+        # Check for department matches
+        for keyword, dept_code in department_matches.items():
+            if keyword in class_name_upper and dept_code in get_class_image._class_images:
+                return get_class_image._class_images[dept_code]['pexels_image']
+        
+        # 3. Try course code pattern matching if provided
+        if course_code:
+            code_pattern = re.compile(r'^([A-Z]{2,4})')
+            match = code_pattern.search(course_code.upper())
+            if match and match.group(1) in get_class_image._class_images:
+                return get_class_image._class_images[match.group(1)]['pexels_image']
+        
+        # 4. Try extracting course code from class name
+        code_patterns = [
+            r'^([A-Z]{2,4})\s*\d',  # e.g., "MAT 101"
+            r'^([A-Z]{2,4})-',      # e.g., "ENG-101"
+            r'^([A-Z]{2,4})_',      # e.g., "CSC_201"
+        ]
+        
+        for pattern in code_patterns:
+            match = re.search(pattern, class_name_upper)
+            if match and match.group(1) in get_class_image._class_images:
+                return get_class_image._class_images[match.group(1)]['pexels_image']
+        
+        # Return default image if no match found
+        print(f"No image match found for class: {class_name}")
+        return "https://images.pexels.com/photos/301926/pexels-photo-301926.jpeg"
         
     except Exception as e:
         print(f"Error getting class image: {str(e)}")
-        return url_for('static', filename='images/classes/default.jpg')
+        return "https://images.pexels.com/photos/301926/pexels-photo-301926.jpeg"
 
 @app.template_filter('format_date')
 def format_date(date_str):
@@ -265,12 +321,14 @@ def dashboard():
         canvas_service = CanvasService(user_id)
         docs_service = DocsService(user_id)
         
+        # Get classes and process their images
+        classes = canvas_service.get_classes()
+        for class_obj in classes:
+            # Use get_class_image instead of cached_images
+            class_obj['image_path'] = get_class_image(class_obj['name'])
+            
         # Check for new semester and create folders if needed
         docs_service.check_new_semester(canvas_service)
-        
-        # Get classes and cache their images
-        classes = canvas_service.get_classes()
-        cached_images = cache_class_images(classes)
         
         # Calculate homework status
         current_time = datetime.now()
@@ -305,7 +363,7 @@ def dashboard():
         # Use cached images instead of fetching new ones
         for class_obj in classes:
             class_id = str(class_obj['id'])
-            class_obj['image_path'] = cached_images.get(class_id, url_for('static', filename='images/classes/default.jpg'))
+            class_obj['image_path'] = get_class_image(class_obj['name'])
             
             # Get grades for this class
             grades = canvas_service.get_grades(class_obj['id'])
