@@ -1436,14 +1436,15 @@ def api_chat():
 
         ai_service = AIService()
         try:
+            # Add error handling around the AI service call
             response = ai_service.AI_Chat_Bot(prompt)
             if response:
                 return jsonify({'response': response})
             else:
-                return jsonify({'error': 'Failed to get AI response'}), 500
-        except Exception as e:
-            print(f"AI Service error: {str(e)}")
-            return jsonify({'error': str(e)}), 500
+                return jsonify({'error': 'Failed to get AI response - empty response'}), 500
+        except Exception as ai_error:
+            print(f"AI Service error: {str(ai_error)}")
+            return jsonify({'error': str(ai_error)}), 500
             
     except Exception as e:
         print(f"API error: {str(e)}")

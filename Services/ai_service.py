@@ -17,7 +17,11 @@ class AIService:
 
     def _configure_gemini(self):
         """Configure Gemini AI with API key."""
-        genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
+        api_key = os.getenv('GEMINI_API_KEY')
+        print(f"Configuring Gemini with API key: {api_key[:5]}...") # Only print first 5 chars for security
+        if not api_key:
+            raise ValueError("GEMINI_API_KEY not found in environment variables")
+        genai.configure(api_key=api_key)
 
     def transcribe_speech(self) -> Optional[str]:
         """Convert speech to text.
