@@ -1971,25 +1971,39 @@ def clear_cache():
     try:
         user_id = session.get('user_id', '')
         
-        # Clear all user-specific caches
-        cache.delete(f'dashboard-{user_id}')
-        cache.delete(f'check_grades-{user_id}')
-        cache.delete(f'course-{user_id}')
-        
-        # Clear any other potential cache keys
-        cache.delete_many([
-            f'assignments-{user_id}',
-            f'calendar-{user_id}',
-            f'courses-{user_id}'
-        ])
-        
-        # For debugging
-        print(f"Cache cleared for user: {user_id}")
+        # Clear all user-specific caches with pattern matching
+        with app.app_context():
+            # Get all cache keys
+            cache_keys = [
+                f'dashboard-{user_id}',
+                f'check_grades-{user_id}',
+                f'course-{user_id}',
+                f'assignments-{user_id}',
+                f'calendar-{user_id}',
+                f'courses-{user_id}'
+            ]
+            
+            # Clear each key individually
+            for key in cache_keys:
+                try:
+                    cache.delete(key)
+                    print(f"Cleared cache key: {key}")
+                except Exception as key_error:
+                    print(f"Error clearing key {key}: {str(key_error)}")
+
+            # Try to clear all cache as fallback
+            try:
+                cache.clear()
+                print("Cleared entire cache as fallback")
+            except Exception as clear_error:
+                print(f"Error clearing entire cache: {str(clear_error)}")
         
         return jsonify({
             'success': True,
-            'message': 'Cache cleared successfully'
+            'message': 'Cache cleared successfully',
+            'cleared_keys': cache_keys
         })
+        
     except Exception as e:
         print(f"Error clearing cache: {str(e)}")
         return jsonify({
