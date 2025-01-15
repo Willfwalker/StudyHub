@@ -1,5 +1,5 @@
 from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
+from google_auth_oauthlib.flow import Flow
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 import os.path
@@ -32,16 +32,58 @@ class DocsService:
         self.user_id = user_id
         self.credentials = None
         self.docs_service = None
-        self.drive_service = None  # Initialize the attribute
+        self.drive_service = None
         
         try:
             if user_id:
                 self.credentials = self._get_credentials()
                 if self.credentials:
                     self.docs_service = build('docs', 'v1', credentials=self.credentials)
-                    self.drive_service = build('drive', 'v3', credentials=self.credentials)  # Initialize drive_service
+                    self.drive_service = build('drive', 'v3', credentials=self.credentials)
         except Exception as e:
             print(f"Error initializing DocsService: {str(e)}")
+
+    def has_valid_credentials(self):
+        """Check if credentials exist and are valid"""
+        return self.credentials is not None and not self.credentials.expired
+
+    def get_authorization_url(self):
+        """Get the URL for Google OAuth consent screen"""
+        try:
+            google_creds = json.loads(os.getenv('GOOGLE_CREDENTIALS_JSON'))
+            flow = Flow.from_client_config(
+                google_creds,
+                scopes=self.SCOPES,
+                redirect_uri=os.getenv('GOOGLE_REDIRECT_URI', 'http://localhost:5000/google-auth-callback')
+            )
+            auth_url, _ = flow.authorization_url(prompt='consent')
+            return auth_url
+        except Exception as e:
+            print(f"Error getting authorization URL: {str(e)}")
+            return None
+
+    def handle_auth_callback(self, code):
+        """Handle the OAuth callback and save credentials"""
+        try:
+            google_creds = json.loads(os.getenv('GOOGLE_CREDENTIALS_JSON'))
+            flow = Flow.from_client_config(
+                google_creds,
+                scopes=self.SCOPES,
+                redirect_uri=os.getenv('GOOGLE_REDIRECT_URI', 'http://localhost:5000/google-auth-callback')
+            )
+            flow.fetch_token(code=code)
+            credentials = flow.credentials
+            
+            # Save credentials and reinitialize services
+            self._save_credentials_to_firebase(credentials)
+            self.credentials = credentials
+            self.docs_service = build('docs', 'v1', credentials=credentials)
+            self.drive_service = build('drive', 'v3', credentials=credentials)
+            
+            return True
+        except Exception as e:
+            print(f"Error handling auth callback: {str(e)}")
+            return False
 
     def _get_credentials(self):
         """Gets valid credentials for the current user from Firebase."""
