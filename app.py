@@ -1664,9 +1664,20 @@ def create_notes(course_id):
         if not user_id:
             return jsonify({'error': 'Not logged in'}), 401
 
+        # Initialize services
         canvas_service = CanvasService(user_id)
         docs_service = DocsService(user_id)
         
+        # Check if Google credentials exist and are valid
+        if not docs_service.has_valid_credentials():
+            # Return URL for Google OAuth consent screen
+            auth_url = docs_service.get_authorization_url()
+            return jsonify({
+                'needs_auth': True,
+                'auth_url': auth_url,
+                'message': 'Google authorization required'
+            }), 401
+
         # Get course details
         course = next((c for c in canvas_service.get_classes() if c['id'] == course_id), None)
         if not course:
@@ -1699,13 +1710,44 @@ def create_notes(course_id):
         doc_info = docs_service.create_notes_doc(doc_name, folder_id)
         
         if doc_info and doc_info.get('url'):
-            return jsonify({'url': doc_info['url']})
+            return jsonify({
+                'success': True,
+                'url': doc_info['url']
+            })
         else:
             return jsonify({'error': 'Failed to create notes document'}), 500
 
     except Exception as e:
         print(f"Error creating notes: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+@app.route('/google-auth-callback')
+def google_auth_callback():
+    try:
+        code = request.args.get('code')
+        if not code:
+            return "Authorization code not found", 400
+
+        user_id = session.get('user_id')
+        if not user_id:
+            return "User not logged in", 401
+
+        docs_service = DocsService(user_id)
+        success = docs_service.handle_auth_callback(code)
+        
+        if success:
+            return """
+                <script>
+                    window.opener.postMessage('google-auth-success', '*');
+                    window.close();
+                </script>
+            """
+        else:
+            return "Authorization failed", 500
+
+    except Exception as e:
+        print(f"Error in Google auth callback: {str(e)}")
+        return str(e), 500
 
 @app.route('/past-notes')
 @login_required
