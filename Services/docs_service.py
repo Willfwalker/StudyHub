@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 import json
 from pathlib import Path
 from firebase_admin import db
+from google_auth_oauthlib.flow import InstalledAppFlow
 
 load_dotenv()
 
@@ -178,12 +179,20 @@ class DocsService:
                 print("Error: GOOGLE_CREDENTIALS_JSON not found in environment variables")
                 return None
             
+            # Parse the JSON string into a dictionary
+            creds_dict = json.loads(google_creds)
+            
+            # Create flow with proper client configuration
             flow = InstalledAppFlow.from_client_config(
-                json.loads(google_creds), self.SCOPES)
+                creds_dict, self.SCOPES)
+            
+            # Run local server flow
             creds = flow.run_local_server(port=0)
+            
             # Save new credentials
             self._save_credentials_to_firebase(creds)
             return creds
+            
         except Exception as e:
             print(f"Error creating new credentials: {str(e)}")
             return None
