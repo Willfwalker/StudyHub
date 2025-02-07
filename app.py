@@ -59,16 +59,6 @@ cache = Cache(app, config={
 print("Current working directory:", os.getcwd())
 print("Static folder absolute path:", os.path.abspath(app.static_folder))
 
-# Add this near the top of your file with other configurations
-CLASS_IMAGES = {
-    "Calc/Analyt Geo I": "math.jpg",
-    "Freshman English I": "english.jpg",
-    "Programming Fundamentals": "programming.jpg",
-    "Introduction to Cybersecurity": "cybersecurity.jpg",
-    "Exploring the Old Testament": "bible.jpg",
-    "Belhaven Basics": "belhaven.jpg"
-}
-
 # Initialize Firebase with credentials from environment variable
 try:
     # Get Firebase credentials from environment variable
@@ -1762,7 +1752,7 @@ def google_auth_callback():
         if success:
             return """
                 <script>
-                    window.opener.postMessage('google-auth-success', '*');
+                    window.opener.postMessage('google-auth-success', window.location.origin);
                     window.close();
                 </script>
             """
