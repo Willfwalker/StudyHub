@@ -36,7 +36,8 @@ app.config.update({
     'FIREBASE_STORAGE_BUCKET': os.getenv('FIREBASE_STORAGE_BUCKET'),
     'FIREBASE_MESSAGING_SENDER_ID': os.getenv('FIREBASE_MESSAGING_SENDER_ID'),
     'FIREBASE_APP_ID': os.getenv('FIREBASE_APP_ID'),
-    'GOOGLE_CREDENTIALS_JSON': os.getenv('GOOGLE_CREDENTIALS_JSON')
+    'FIREBASE_DATABASE_URL': os.getenv('FIREBASE_DATABASE_URL'),
+    'FIREBASE_MEASUREMENT_ID': os.getenv('FIREBASE_MEASUREMENT_ID')
 })
 
 # Ensure static folder exists
@@ -78,19 +79,39 @@ try:
             firebase_cred_json = firebase_cred_json.strip().strip("'").replace('\\"', '"')
             firebase_cred_dict = json.loads(firebase_cred_json)
             
+            # Add debug prints
+            print("Initializing Firebase with:")
+            print(f"Project ID: {firebase_cred_dict.get('project_id')}")
+            print(f"Database URL: {os.getenv('FIREBASE_DATABASE_URL')}")
+            
             if not firebase_admin._apps:
                 cred = credentials.Certificate(firebase_cred_dict)
+                
+                # Initialize with explicit options
                 firebase_admin.initialize_app(cred, {
-                    'databaseURL': os.getenv('FIREBASE_DATABASE_URL', 'https://student-hub-28ea1-default-rtdb.firebaseio.com/')
+                    'databaseURL': os.getenv('FIREBASE_DATABASE_URL'),
+                    'projectId': firebase_cred_dict.get('project_id'),
+                    'storageBucket': os.getenv('FIREBASE_STORAGE_BUCKET')
                 })
-                print("Firebase initialized successfully with config:", firebase_cred_dict.get('project_id'))
+                print("Firebase initialized successfully")
+                
+                # Test database connection immediately
+                try:
+                    ref = db.reference('/')
+                    ref.set({'test': 'connection successful'})
+                    print("Database connection verified")
+                except Exception as db_error:
+                    print(f"Database connection test failed: {str(db_error)}")
             else:
                 print("Firebase already initialized")
+                
         except json.JSONDecodeError as e:
             print(f"JSON Parse Error: {str(e)}")
             print(f"Raw JSON string: {firebase_cred_json}")
         except Exception as e:
             print(f"Error initializing Firebase: {str(e)}")
+            print(f"Error type: {type(e).__name__}")
+            print(f"Error args: {e.args}")
     else:
         print("Warning: FIREBASE_CREDENTIALS_JSON environment variable not set")
 except Exception as e:
@@ -104,6 +125,9 @@ def test_db_connection():
         print("Database connection successful")
     except Exception as e:
         print(f"Database connection error: {str(e)}")
+
+# Call it after initialization
+test_db_connection()
 
 # Email configuration
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
