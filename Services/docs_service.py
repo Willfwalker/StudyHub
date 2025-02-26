@@ -55,7 +55,7 @@ class DocsService:
             flow = Flow.from_client_config(
                 google_creds,
                 scopes=self.SCOPES,
-                redirect_uri=os.getenv('GOOGLE_REDIRECT_URI', 'http://localhost:5000/google-auth-callback')
+                redirect_uri=os.getenv('GOOGLE_REDIRECT_URI', 'http://127.0.0.1:5000/google-auth-callback')
             )
             auth_url, _ = flow.authorization_url(prompt='consent')
             return auth_url
@@ -66,20 +66,35 @@ class DocsService:
     def handle_auth_callback(self, code):
         """Handle the OAuth callback and save credentials"""
         try:
+            print(f"Starting auth callback with code: {code[:10]}...") # Only show first 10 chars for security
+            
             google_creds = json.loads(os.getenv('GOOGLE_CREDENTIALS_JSON'))
+            print(f"Loaded Google credentials config")
+            
             flow = Flow.from_client_config(
                 google_creds,
                 scopes=self.SCOPES,
-                redirect_uri=os.getenv('GOOGLE_REDIRECT_URI', 'http://localhost:5000/google-auth-callback')
+                redirect_uri=os.getenv('GOOGLE_REDIRECT_URI', 'http://127.0.0.1:5000/google-auth-callback')
             )
-            flow.fetch_token(code=code)
+            print(f"Created flow with redirect URI: {flow._redirect_uri}")
+            
+            try:
+                flow.fetch_token(code=code)
+                print("Successfully fetched token")
+            except Exception as token_error:
+                print(f"Error fetching token: {str(token_error)}")
+                return False
+            
             credentials = flow.credentials
             
             # Save credentials and reinitialize services
-            self._save_credentials_to_firebase(credentials)
+            saved = self._save_credentials_to_firebase(credentials)
+            print(f"Saved credentials to Firebase: {saved}")
+            
             self.credentials = credentials
             self.docs_service = build('docs', 'v1', credentials=credentials)
             self.drive_service = build('drive', 'v3', credentials=credentials)
+            print("Successfully initialized services")
             
             return True
         except Exception as e:
@@ -182,16 +197,19 @@ class DocsService:
             # Parse the JSON string into a dictionary
             creds_dict = json.loads(google_creds)
             
-            # Create flow with proper client configuration
-            flow = InstalledAppFlow.from_client_config(
-                creds_dict, self.SCOPES)
+            # Get redirect URI from environment or use default
+            redirect_uri = os.getenv('GOOGLE_REDIRECT_URI', 'http://127.0.0.1:5000/google-auth-callback')
             
-            # Run local server flow
-            creds = flow.run_local_server(port=0)
+            # Create flow with proper client configuration and redirect URI
+            flow = Flow.from_client_config(
+                creds_dict,
+                scopes=self.SCOPES,
+                redirect_uri=redirect_uri
+            )
             
-            # Save new credentials
-            self._save_credentials_to_firebase(creds)
-            return creds
+            # Instead of running a local server, we'll return None to trigger the OAuth flow
+            # The application should then redirect to the authorization URL
+            return None
             
         except Exception as e:
             print(f"Error creating new credentials: {str(e)}")
@@ -1228,7 +1246,6 @@ class DocsService:
         except Exception as e:
             print(f"Error checking for new semester: {e}")
             return False
-
     def _save_credentials_to_firebase(self, creds):
         """Saves Google credentials to Firebase for the current user."""
         try:

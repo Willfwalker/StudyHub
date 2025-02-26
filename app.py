@@ -1746,13 +1746,18 @@ def google_auth_callback():
         if not user_id:
             return "User not logged in", 401
 
+        # Add debug logging
+        print(f"Received auth code from Google: {code[:10]}...")  # Only print first 10 chars for security
+        print(f"Current request URL: {request.url}")
+        print(f"Request headers: {dict(request.headers)}")
+
         docs_service = DocsService(user_id)
         success = docs_service.handle_auth_callback(code)
         
         if success:
             return """
                 <script>
-                    window.opener.postMessage('google-auth-success', window.location.origin);
+                    window.opener.postMessage('google-auth-success', '*');  # Changed from window.location.origin
                     window.close();
                 </script>
             """
