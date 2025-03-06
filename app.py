@@ -324,22 +324,96 @@ def login_page():
 @app.route('/')
 @app.route('/dashboard')
 @login_required
-@cache.cached(timeout=3600, key_prefix=make_cache_key)  # Will create keys like "dashboard-user_id"
 def dashboard():
     try:
         user_id = session.get('user_id')
         if not user_id:
+            print("No user_id in session")
             return redirect(url_for('login'))
 
+        print(f"Dashboard: User ID = {user_id}")
+            
+        # Check Firebase for API key first
+        try:
+            # Add more debug information
+            print(f"Attempting to access Firebase at path: users/{user_id}")
+            user_ref = db.reference(f'users/{user_id}')
+            user_data = user_ref.get()
+            print(f"Firebase user data: {user_data}")
+            
+            # Test Firebase connection directly
+            test_ref = db.reference('/')
+            test_data = test_ref.get()
+            print(f"Firebase root data exists: {test_data is not None}")
+            
+            if not user_data:
+                print("User data not found in Firebase, attempting verification...")
+                # Use your verification function here
+                user_data = verify_user_data_in_firebase(user_id)
+                
+            if not user_data:
+                # Still no user data after verification
+                print("User data verification failed, redirecting to login")
+                session.clear()  # Clear the session to force re-login
+                return redirect(url_for('login_page'))
+            
+            canvas_api_key = user_data.get('canvas_api_key')
+            print(f"Canvas API key exists: {bool(canvas_api_key)}")
+            
+            # Store these in session for potential repair operations
+            session['email'] = user_data.get('email')
+            session['canvas_api_key'] = canvas_api_key
+            session['canvas_url'] = user_data.get('canvas_url')
+            
+            if not canvas_api_key:
+                print("Canvas API key not found in user data")
+                return render_template('dashboard.html', 
+                                    classes=[],
+                                    current_gpa='N/A',
+                                    current_assignments=[],
+                                    homework_status="green",
+                                    error="Canvas API key not found. Please update your profile.")
+                                    
+        except Exception as firebase_error:
+            print(f"Firebase error: {str(firebase_error)}")
+            return render_template('dashboard.html', 
+                                classes=[], 
+                                current_gpa='N/A',  # Add default value
+                                current_assignments=[],  # Add default value
+                                homework_status="green",  # Add default value
+                                error=f"Firebase error: {str(firebase_error)}")
+
         # Initialize services
-        canvas_service = CanvasService(user_id)
-        docs_service = DocsService(user_id)
+        try:
+            canvas_service = CanvasService(user_id)
+            print("Canvas service initialized")
+            
+            docs_service = DocsService(user_id)
+            print("Docs service initialized")
+        except Exception as service_error:
+            print(f"Service initialization error: {str(service_error)}")
+            return render_template('dashboard.html', 
+                                classes=[], 
+                                current_gpa='N/A',  # Add default value
+                                current_assignments=[],  # Add default value
+                                homework_status="green",  # Add default value
+                                error=f"Service error: {str(service_error)}")
         
-        # Get classes and process their images
-        classes = canvas_service.get_classes()
-        for class_obj in classes:
-            # Use get_class_image instead of cached_images
-            class_obj['image_path'] = get_class_image(class_obj['name'])
+        # Get current classes - use get_current_classes() instead of get_classes()
+        try:
+            classes = canvas_service.get_current_classes()
+            print(f"Retrieved {len(classes)} current classes")
+            
+            for class_obj in classes:
+                class_obj['image_path'] = get_class_image(class_obj['name'])
+        except Exception as classes_error:
+            print(f"Error getting classes: {str(classes_error)}")
+            return render_template('dashboard.html', 
+                                classes=[], 
+                                current_gpa='N/A',  # Add default value
+                                current_assignments=[],  # Add default value
+                                homework_status="green",  # Add default value
+                                error=f"Error getting classes: {str(classes_error)}")
             
         # Check for new semester and create folders if needed
         docs_service.check_new_semester(canvas_service)
@@ -430,7 +504,7 @@ def dashboard():
             if assignments:
                 for assignment in assignments:
                     assignment['course_name'] = course['name']
-                    current_assignments.extend(assignments)
+                    current_assignments.append(assignment)
         
         return render_template('dashboard.html', 
                              classes=classes,
@@ -439,7 +513,13 @@ def dashboard():
                              homework_status=homework_status)
                              
     except Exception as e:
-        return str(e), 500
+        print(f"Dashboard error: {str(e)}")
+        return render_template('dashboard.html', 
+                             classes=[], 
+                             current_gpa='N/A',  # Add default value
+                             current_assignments=[],  # Add default value
+                             homework_status="green",  # Add default value
+                             error=f"Unexpected error: {str(e)}")
 
 # Routes for sidebar navigation
 @app.route('/courses')
@@ -1180,82 +1260,136 @@ def register():
         return render_template('register.html', config=firebase_config)
 
 @app.route('/api/register', methods=['POST'])
+@csrf.exempt
 def api_register():
     try:
         data = request.get_json()
+        print(f"Registration data received: {data}")  # Debug log
+        
+        # Check if we're getting the raw data correctly
+        print(f"Raw request data: {request.data}")
+        
         email = data.get('email')
+        password = data.get('password')
         uid = data.get('uid')
         canvas_api_key = data.get('canvas_api_key')
-        canvas_url = data.get('canvas_url', getenv('CANVAS_URL'))
-        google_folder_link = data.get('google_folder_link')
+        canvas_url = data.get('canvas_url')
+        google_folder_id = data.get('google_folder_id', '')
         
-        if not all([email, uid, canvas_api_key, canvas_url, google_folder_link]):
+        # Print each field for debugging
+        print(f"Email: {email}")
+        print(f"Password present: {'Yes' if password else 'No'}")
+        print(f"UID: {uid}")
+        print(f"Canvas API Key: {canvas_api_key}")
+        print(f"Canvas URL: {canvas_url}")
+        
+        # Check if password is coming in with a different key
+        all_keys = data.keys()
+        print(f"All keys in request: {all_keys}")
+        
+        # Check required fields individually to provide better error messages
+        missing_fields = []
+        if not email:
+            missing_fields.append('email')
+        if not password and not uid:
+            # Only require password if we don't have a UID
+            missing_fields.append('password')
+        if not canvas_api_key:
+            missing_fields.append('Canvas API Key')
+        if not canvas_url:
+            missing_fields.append('Canvas URL')
+            
+        if missing_fields:
             return jsonify({
-                'success': False,
-                'error': 'Missing required fields'
+                'error': f'Missing required fields: {", ".join(missing_fields)}'
             }), 400
             
-        # Extract folder ID from Google Drive link
-        folder_id = None
-        if 'folders' in google_folder_link:
-            folder_id = google_folder_link.split('folders/')[-1].split('?')[0]
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'Invalid Google Drive folder link'
-            }), 400
-
-        # Store in Firebase Realtime Database
+        # Create user in Firebase
         try:
-            db_ref = db.reference('users')
-            user_data = {
-                'email': email,
-                'canvas_api_key': canvas_api_key,
-                'canvas_url': canvas_url,
-                'google_parent_folder': folder_id,
-                'created_at': str(datetime.now()),
-                'setup_complete': True
-            }
+            # If UID is provided, use it instead of creating a new user
+            if uid:
+                user_id = uid
+                print(f"Using provided Firebase user with ID: {user_id}")
+            else:
+                # Create user in Firebase
+                user = auth.create_user(
+                    email=email,
+                    password=password
+                )
+                user_id = user.uid
+                print(f"Created Firebase user with ID: {user_id}")
+        except Exception as auth_error:
+            print(f"Firebase auth error: {str(auth_error)}")  # Debug log
+            return jsonify({'error': f'Authentication error: {str(auth_error)}'}), 400
             
-            # Store the data
-            db_ref.child(uid).set(user_data)
-            
-            # Initialize services
-            canvas_service = CanvasService(uid)
-            docs_service = DocsService(uid)
-            
-            # Get classes from Canvas
+        # Store user data in Firebase
+        user_ref = db.reference(f'users/{user_id}')
+        user_ref.set({
+            'email': email,
+            'canvas_api_key': canvas_api_key,
+            'canvas_url': canvas_url,
+            'google_parent_folder': google_folder_id,
+            'created_at': datetime.now().isoformat()
+        })
+        
+        # Set session
+        session['user_id'] = user_id
+        session['email'] = email
+        
+        print(f"User registered successfully, proceeding to folder creation")  # Debug log
+        
+        # Initialize services
+        canvas_service = CanvasService(user_id)
+        docs_service = DocsService(user_id)
+        
+        # Get classes for semester folder creation
+        try:
             classes = canvas_service.get_classes()
-            if not classes:
-                raise Exception("Unable to fetch classes from Canvas")
+            class_names = [course['name'] for course in classes] if classes else []
+            
+            # Check if we have valid Google credentials
+            if docs_service.has_valid_credentials():
+                # Create semester folders directly
+                docs_service.check_new_semester(canvas_service)
+                print("Created semester folders directly")  # Debug log
+            else:
+                # Store pending action and class names in session
+                session['pending_google_action'] = 'create_semester_folders'
+                session['pending_class_names'] = class_names
                 
-            class_names = [course['name'] for course in classes]
+                # Get Google authorization URL
+                auth_url = docs_service.get_authorization_url()
+                print(f"Google auth URL: {auth_url}")  # Debug log
+                
+                if auth_url:
+                    # Return success with redirect URL for Google auth
+                    return jsonify({
+                        'success': True,
+                        'message': 'Registration successful, Google authorization required',
+                        'redirect_url': auth_url
+                    })
+                else:
+                    # Continue without Google integration
+                    print("Warning: Failed to get Google authorization URL")
             
-            # Create semester-based folders in Google Drive
-            created_folders = docs_service.create_semester_folders(class_names, folder_id)
-            
-            if not created_folders:
-                return jsonify({
-                    'success': False,
-                    'error': 'Failed to create semester folders'
-                }), 500
-
             return jsonify({
                 'success': True,
                 'message': 'Registration successful',
-                'redirect': url_for('dashboard')
+                'redirect_url': '/dashboard'  # Hardcoded URL instead of using url_for
             })
             
-        except Exception as e:
-            print(f"Database error: {str(e)}")
-            raise
+        except Exception as folder_error:
+            print(f"Error creating semester folders: {str(folder_error)}")
+            # Continue with registration even if folder creation fails
+            return jsonify({
+                'success': True,
+                'message': 'Registration successful, but folder creation failed',
+                'redirect_url': '/dashboard'  # Hardcoded URL instead of using url_for
+            })
             
     except Exception as e:
         print(f"Registration error: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 400
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/verify-registration', methods=['POST'])
 def verify_registration():
@@ -1291,18 +1425,14 @@ def test():
 
 @app.route('/logout')
 def logout():
-    try:
-        user_id = session.get('user_id')
-        if user_id:
-            # Delete Google token when logging out
-            docs_service = DocsService(user_id)
-            docs_service.delete_token()
-            
-        session.clear()
-        return redirect(url_for('login_page'))
-    except Exception as e:
-        print(f"Logout error: {str(e)}")
-        return redirect(url_for('login_page'))
+    # Add debug log before clearing session
+    print(f"Logging out user ID: {session.get('user_id')}")
+    
+    # Clear the session
+    session.clear()
+    
+    # Redirect to login page
+    return redirect(url_for('login_page'))
 
 app.permanent_session_lifetime = timedelta(days=5)  # Set session lifetime
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=5)
@@ -1738,32 +1868,42 @@ def create_notes(course_id):
 @app.route('/google-auth-callback')
 def google_auth_callback():
     try:
-        code = request.args.get('code')
-        if not code:
-            return "Authorization code not found", 400
-
+        # Get the authorization code from the request
+        auth_code = request.args.get('code')
+        if not auth_code:
+            return "Authorization code missing", 400
+            
+        # Get the user ID from session
         user_id = session.get('user_id')
         if not user_id:
-            return "User not logged in", 401
-
-        # Add debug logging
-        print(f"Received auth code from Google: {code[:10]}...")  # Only print first 10 chars for security
-        print(f"Current request URL: {request.url}")
-        print(f"Request headers: {dict(request.headers)}")
-
+            return redirect(url_for('login_page'))
+            
+        # Initialize DocsService
         docs_service = DocsService(user_id)
-        success = docs_service.handle_auth_callback(code)
+        
+        # Handle the authorization callback
+        success = docs_service.handle_auth_callback(auth_code)
         
         if success:
-            return """
-                <script>
-                    window.opener.postMessage('google-auth-success', '*');  # Changed from window.location.origin
-                    window.close();
-                </script>
-            """
+            # Check if we need to create semester folders
+            pending_action = session.get('pending_google_action')
+            if pending_action == 'create_semester_folders':
+                # Clear the pending action
+                session.pop('pending_google_action', None)
+                
+                # Get class names from session
+                class_names = session.get('pending_class_names', [])
+                if class_names:
+                    # Create semester folders now that we have authorization
+                    canvas_service = CanvasService(user_id)
+                    docs_service.check_new_semester(canvas_service)
+                    session.pop('pending_class_names', None)
+                
+            # Redirect to dashboard
+            return redirect(url_for('dashboard'))
         else:
-            return "Authorization failed", 500
-
+            return "Failed to authenticate with Google", 500
+            
     except Exception as e:
         print(f"Error in Google auth callback: {str(e)}")
         return str(e), 500
@@ -2282,6 +2422,114 @@ app.config.update({
 def before_request():
     print("Session contents:", dict(session))
     print("Request path:", request.path)
+
+@app.route('/api/check-canvas-api-key')
+@login_required
+def check_canvas_api_key():
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({'has_api_key': False, 'error': 'Not logged in'}), 401
+            
+        # Check Firebase for API key
+        try:
+            user_ref = db.reference(f'users/{user_id}')
+            user_data = user_ref.get()
+            
+            if not user_data:
+                print(f"No user data found for user {user_id}")
+                return jsonify({'has_api_key': False, 'error': 'User data not found'})
+                
+            canvas_api_key = user_data.get('canvas_api_key')
+            has_api_key = bool(canvas_api_key)
+            
+            return jsonify({
+                'has_api_key': has_api_key,
+                'message': 'API key found' if has_api_key else 'API key not found'
+            })
+            
+        except Exception as firebase_error:
+            print(f"Firebase error in check_canvas_api_key: {str(firebase_error)}")
+            return jsonify({'has_api_key': False, 'error': str(firebase_error)}), 500
+            
+    except Exception as e:
+        print(f"Error in check_canvas_api_key: {str(e)}")
+        return jsonify({'has_api_key': False, 'error': str(e)}), 500
+
+@app.route('/api/update-canvas-api-key', methods=['POST'])
+@login_required
+@csrf.exempt
+def update_canvas_api_key():
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({'success': False, 'error': 'Not logged in'}), 401
+            
+        data = request.get_json()
+        api_key = data.get('api_key')
+        canvas_url = data.get('canvas_url', 'https://canvas.instructure.com')
+        
+        if not api_key:
+            return jsonify({'success': False, 'error': 'No API key provided'}), 400
+            
+        # Update Firebase
+        try:
+            user_ref = db.reference(f'users/{user_id}')
+            user_data = user_ref.get() or {}
+            
+            # Update with new values
+            user_data['canvas_api_key'] = api_key
+            user_data['canvas_url'] = canvas_url
+            
+            # Save back to Firebase
+            user_ref.set(user_data)
+            
+            return jsonify({'success': True, 'message': 'API key updated successfully'})
+            
+        except Exception as firebase_error:
+            print(f"Firebase error in update_canvas_api_key: {str(firebase_error)}")
+            return jsonify({'success': False, 'error': str(firebase_error)}), 500
+            
+    except Exception as e:
+        print(f"Error in update_canvas_api_key: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+def verify_user_data_in_firebase(user_id):
+    """Verify user data exists in Firebase and try to repair if missing"""
+    try:
+        # Check if user data exists
+        user_ref = db.reference(f'users/{user_id}')
+        user_data = user_ref.get()
+        
+        if not user_data:
+            print(f"User data missing for {user_id}, attempting to repair...")
+            
+            # Get session data
+            email = session.get('email')
+            canvas_api_key = session.get('canvas_api_key')
+            canvas_url = session.get('canvas_url')
+            
+            # If we have the minimum needed info, restore user data
+            if email and canvas_api_key:
+                user_ref.set({
+                    'email': email,
+                    'canvas_api_key': canvas_api_key,
+                    'canvas_url': canvas_url or 'https://canvas.instructure.com',
+                    'repaired_at': datetime.now().isoformat()
+                })
+                print(f"Repaired user data for {user_id}")
+                
+                # Verify repair
+                repaired_data = user_ref.get()
+                print(f"Verification after repair: {repaired_data is not None}")
+                return repaired_data
+            else:
+                print(f"Insufficient data to repair user: {user_id}")
+                return None
+        return user_data
+    except Exception as e:
+        print(f"Error verifying user data: {str(e)}")
+        return None
 
 if __name__ == '__main__':
     app.run(debug=True)

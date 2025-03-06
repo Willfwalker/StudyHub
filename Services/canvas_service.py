@@ -1,7 +1,7 @@
 from typing import List, Dict, Optional
 import requests
 from canvasapi import Canvas
-from datetime import datetime
+from datetime import datetime, timedelta
 from os import getenv
 from dotenv import load_dotenv
 from functools import lru_cache
@@ -93,6 +93,7 @@ class CanvasService:
             response = requests.get(endpoint, headers=self.get_headers(), params=params)
             response.raise_for_status()
             result = response.json()
+            print(f"Canvas API returned {len(result)} courses")
             self._set_cached_data(cache_key, result)
             return result
         except requests.exceptions.RequestException as e:
@@ -490,3 +491,117 @@ class CanvasService:
         except requests.exceptions.RequestException as e:
             print(f"Error fetching course {course_id}: {e}")
             return None
+
+    def get_course_syllabus(self, course_id: int) -> Optional[Dict]:
+        """Get the syllabus for a specific course.
+        
+        Args:
+            course_id (int): The Canvas course ID
+            
+        Returns:
+            Optional[Dict]: Dictionary containing syllabus body and course name,
+                           or None if syllabus couldn't be retrieved
+        """
+        cache_key = f'syllabus_{course_id}'
+        cached_data = self._get_cached_data(cache_key)
+        if cached_data:
+            return cached_data
+            
+        endpoint = f"{self.canvas_url}/api/v1/courses/{course_id}"
+        params = {
+            'include[]': ['syllabus_body']
+        }
+        
+        try:
+            response = requests.get(endpoint, headers=self.get_headers(), params=params)
+            response.raise_for_status()
+            course_data = response.json()
+            
+            result = {
+                'course_name': course_data.get('name', 'Unknown Course'),
+                'syllabus_body': course_data.get('syllabus_body', ''),
+                'has_syllabus': bool(course_data.get('syllabus_body'))
+            }
+            
+            self._set_cached_data(cache_key, result)
+            return result
+            
+        except requests.exceptions.RequestException as e:
+            print(f"Error fetching syllabus for course {course_id}: {e}")
+            return None
+
+    def get_current_classes(self) -> List[Dict]:
+        """Get user's current classes (classes in progress)
+        
+        Returns:
+            List[Dict]: List of current classes with their details
+        """
+        cache_key = 'current_classes'
+        cached_data = self._get_cached_data(cache_key)
+        if cached_data:
+            return cached_data
+
+        # First get all active classes
+        all_classes = self.get_classes()
+        
+        # If no classes are found, return the empty list
+        if not all_classes:
+            print("No classes found from Canvas API")
+            return []
+        
+        print(f"Retrieved {len(all_classes)} total classes from Canvas")
+        
+        # Filter for classes that are currently in progress
+        current_time = datetime.now()
+        current_classes = []
+        
+        for course in all_classes:
+            # Skip classes that are explicitly marked as completed
+            if course.get('workflow_state') == 'completed':
+                print(f"Skipping completed course: {course.get('name')}")
+                continue
+            
+            # Consider a course current if:
+            # 1. It's not explicitly marked as concluded
+            # 2. It doesn't have term dates (likely a current course)
+            # 3. OR it has term dates and we're within those dates (or within 30 days after end date)
+            
+            is_current = True
+            
+            # Check conclusion status
+            if course.get('concluded', False):
+                is_current = False
+                print(f"Course marked concluded: {course.get('name')}")
+            
+            # Check term dates if available
+            if is_current and 'term' in course and course['term'].get('start_at') and course['term'].get('end_at'):
+                try:
+                    start_date = datetime.strptime(course['term']['start_at'], '%Y-%m-%dT%H:%M:%SZ')
+                    end_date = datetime.strptime(course['term']['end_at'], '%Y-%m-%dT%H:%M:%SZ')
+                    
+                    # Allow courses that ended within the last 30 days to still appear
+                    end_buffer = end_date + timedelta(days=30)
+                    
+                    if current_time < start_date:
+                        print(f"Course hasn't started yet: {course.get('name')}")
+                        is_current = False
+                    elif current_time > end_buffer:
+                        print(f"Course ended more than 30 days ago: {course.get('name')}")
+                        is_current = False
+                except (ValueError, TypeError) as e:
+                    # If there's an error parsing dates, still include the course
+                    print(f"Error parsing dates for course {course.get('name')}: {e}")
+            
+            if is_current:
+                current_classes.append(course)
+                print(f"Including current course: {course.get('name')}")
+        
+        # IMPORTANT FALLBACK: If no current classes found, return all active classes
+        # This ensures something always shows on the dashboard
+        if not current_classes:
+            print("No current classes found after filtering, falling back to all active classes")
+            return all_classes
+        
+        print(f"Found {len(current_classes)} current classes out of {len(all_classes)} total")
+        self._set_cached_data(cache_key, current_classes)
+        return current_classes

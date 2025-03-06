@@ -16,6 +16,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // AI Assistant button
     setupAIAssistant();
+    
+    // Add API key check
+    checkApiKeyStatus();
 });
 
 function setupMenuButtons() {
@@ -205,4 +208,34 @@ function displayNotifications(notifications) {
 function showDayEvents(date) {
     // Implementation for showing events for a specific day
     console.log('Showing events for:', date);
+}
+
+// Add this function to check API key status
+function checkApiKeyStatus() {
+    console.log("Checking API key status...");
+    fetch('/api/check-canvas-api-key')
+        .then(response => {
+            console.log("API key check response status:", response.status);
+            return response.json();
+        })
+        .then(data => {
+            console.log("API key check data:", data);
+            if (!data.has_api_key) {
+                // Show a notification or modal to prompt user to add API key
+                const notification = document.createElement('div');
+                notification.className = 'api-key-notification';
+                notification.innerHTML = `
+                    <p>Canvas API key not found. Please update your profile settings.</p>
+                    <button id="go-to-profile">Update Profile</button>
+                `;
+                document.body.appendChild(notification);
+                
+                document.getElementById('go-to-profile').addEventListener('click', () => {
+                    window.location.href = '/profile';
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error checking API key status:', error);
+        });
 }
