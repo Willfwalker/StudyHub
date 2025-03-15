@@ -61,9 +61,9 @@ function registerUser(event) {
                 console.log("Registration successful, data:", data);
                 
                 // Check if we need to redirect for Google auth
-                if (data.redirect_url && data.redirect_url !== 'undefined') {
-                    console.log("Redirecting to:", data.redirect_url);
-                    window.location.href = data.redirect_url;
+                if (data.redirect && data.redirect !== 'undefined') {
+                    console.log("Redirecting to:", data.redirect);
+                    window.location.href = data.redirect;
                 } else {
                     console.log("Fallback: Redirecting to dashboard");
                     window.location.href = '/dashboard';

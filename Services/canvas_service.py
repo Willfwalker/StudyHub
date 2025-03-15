@@ -13,7 +13,7 @@ class CanvasService:
     def __init__(self, user_id=None):
         # Initialize cache
         self._cache = {}
-        self.cache_duration = 300  # Cache duration in seconds (5 minutes)
+        self.cache_duration = 300
         
         self.user_id = user_id
         self.api_key = None
@@ -531,11 +531,7 @@ class CanvasService:
             return None
 
     def get_current_classes(self) -> List[Dict]:
-        """Get user's current classes (classes in progress)
-        
-        Returns:
-            List[Dict]: List of current classes with their details
-        """
+        """Get user's current classes (classes in progress)"""
         cache_key = 'current_classes'
         cached_data = self._get_cached_data(cache_key)
         if cached_data:
@@ -544,64 +540,116 @@ class CanvasService:
         # First get all active classes
         all_classes = self.get_classes()
         
-        # If no classes are found, return the empty list
         if not all_classes:
             print("No classes found from Canvas API")
             return []
         
-        print(f"Retrieved {len(all_classes)} total classes from Canvas")
-        
-        # Filter for classes that are currently in progress
+        # Determine current semester based on date
         current_time = datetime.now()
+        # Spring: January-May, Summer: June-July, Fall: August-December
+        if 1 <= current_time.month <= 5:
+            current_semester = 'Spring'
+        elif 6 <= current_time.month <= 7:
+            current_semester = 'Summer'
+        else:  # 8-12
+            current_semester = 'Fall'
+        
+        current_year = current_time.year
+        print(f"Current semester determined to be: {current_semester} {current_year}")
+        
+        # Filter for classes in the current semester
         current_classes = []
         
         for course in all_classes:
-            # Skip classes that are explicitly marked as completed
-            if course.get('workflow_state') == 'completed':
-                print(f"Skipping completed course: {course.get('name')}")
+            # Skip classes that are explicitly marked as completed or concluded
+            if course.get('workflow_state') == 'completed' or course.get('concluded', False):
                 continue
             
-            # Consider a course current if:
-            # 1. It's not explicitly marked as concluded
-            # 2. It doesn't have term dates (likely a current course)
-            # 3. OR it has term dates and we're within those dates (or within 30 days after end date)
-            
-            is_current = True
-            
-            # Check conclusion status
-            if course.get('concluded', False):
-                is_current = False
-                print(f"Course marked concluded: {course.get('name')}")
-            
-            # Check term dates if available
-            if is_current and 'term' in course and course['term'].get('start_at') and course['term'].get('end_at'):
-                try:
-                    start_date = datetime.strptime(course['term']['start_at'], '%Y-%m-%dT%H:%M:%SZ')
-                    end_date = datetime.strptime(course['term']['end_at'], '%Y-%m-%dT%H:%M:%SZ')
+            # Check term information if available
+            if 'term' in course and course['term']:
+                term = course['term']
+                term_name = term.get('name', '').lower()
+                
+                # Extract term information from the name
+                # Most Canvas instances use format like "2025 Spring" or "Spring 2025"
+                if not term_name:
+                    continue
                     
-                    # Allow courses that ended within the last 30 days to still appear
-                    end_buffer = end_date + timedelta(days=30)
-                    
-                    if current_time < start_date:
-                        print(f"Course hasn't started yet: {course.get('name')}")
-                        is_current = False
-                    elif current_time > end_buffer:
-                        print(f"Course ended more than 30 days ago: {course.get('name')}")
-                        is_current = False
-                except (ValueError, TypeError) as e:
-                    # If there's an error parsing dates, still include the course
-                    print(f"Error parsing dates for course {course.get('name')}: {e}")
-            
-            if is_current:
+                # Check if this is a current term course by looking for current year and semester
+                is_current_term = False
+                
+                # Check for current year in term name
+                if str(current_year) in term_name:
+                    # Check for current semester in term name
+                    if current_semester.lower() in term_name:
+                        is_current_term = True
+                
+                # If not current term, skip this course
+                if not is_current_term:
+                    continue
+                
+                # If we get here, it's a current term course
                 current_classes.append(course)
-                print(f"Including current course: {course.get('name')}")
+            else:
+                # If no term info, use course dates as fallback
+                if course.get('start_at') and course.get('end_at'):
+                    start_date = datetime.strptime(course['start_at'], '%Y-%m-%dT%H:%M:%SZ')
+                    end_date = datetime.strptime(course['end_at'], '%Y-%m-%dT%H:%M:%SZ')
+                    
+                    # If current date is between start and end dates, include this course
+                    if start_date <= current_time <= end_date:
+                        current_classes.append(course)
         
-        # IMPORTANT FALLBACK: If no current classes found, return all active classes
-        # This ensures something always shows on the dashboard
-        if not current_classes:
-            print("No current classes found after filtering, falling back to all active classes")
-            return all_classes
-        
-        print(f"Found {len(current_classes)} current classes out of {len(all_classes)} total")
+        # Cache the result
         self._set_cached_data(cache_key, current_classes)
         return current_classes
+
+    def get_current_grades(self) -> List[Dict]:
+        """Get grades for all current classes
+        
+        Returns:
+            List[Dict]: List of dictionaries containing course information with grades
+        """
+        cache_key = 'current_grades'
+        cached_data = self._get_cached_data(cache_key)
+        if cached_data:
+            return cached_data
+            
+        # Get current classes first
+        current_classes = self.get_current_classes()
+        
+        if not current_classes:
+            print("No current classes found")
+            return []
+            
+        # Fetch grades for each current class
+        classes_with_grades = []
+        
+        for course in current_classes:
+            course_id = course['id']
+            course_info = {
+                'id': course_id,
+                'name': course.get('name', 'Unknown Course'),
+                'code': course.get('course_code', ''),
+            }
+            
+            # Get professor name if available
+            if 'teachers' in course and course['teachers']:
+                course_info['professor'] = course['teachers'][0]['display_name']
+            else:
+                course_info['professor'] = 'Not Available'
+                
+            # Get grade information
+            grade_data = self.get_grades(course_id)
+            if grade_data:
+                course_info['grade_percentage'] = grade_data.get('percentage')
+                course_info['grade_letter'] = grade_data.get('letter')
+            else:
+                course_info['grade_percentage'] = None
+                course_info['grade_letter'] = 'N/A'
+                
+            classes_with_grades.append(course_info)
+            
+        # Cache the results
+        self._set_cached_data(cache_key, classes_with_grades)
+        return classes_with_grades
